@@ -1,0 +1,105 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools"]
+
+[project]
+authors = [
+  { name = "Leonardo Calbi", email = "leocalbi@gmail.com" },
+  { name = "Marcello De Giorgi", email = "degiorgimarcello@gmail.com" },
+]
+dependencies = ["jupyter", "pandas", "holidays", "streamlit"]
+description = """\
+  Work holiday management tool.\
+  """
+dynamic = ["version"]
+keywords = ["work", "vacation", "planner", "holiday", "management"]
+license = { text = "Commercial" }
+name = "work_holiday"
+requires-python = ">=3.11"
+
+[project.optional-dependencies]
+dev = [
+  "bandit",
+  "black[jupyter]",
+  "flake8-bugbear",
+  "flake8-docstrings",
+  "flake8-pyproject",
+  "flake8",
+  "isort",
+  "mypy",
+  "pandas-stubs",
+  "pyupgrade",
+]
+
+[project.scripts]
+
+[project.readme]
+content-type = "text/markdown"
+file = "README.md"
+
+[project.urls]
+homepage = "https://github.com/LeoCalbi/vacation-calendar"
+repository = "https://github.com/LeoCalbi/vacation-calendar"
+
+[tool.setuptools.dynamic]
+version = { attr = "vacation_calendar.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["vacation_calendar"]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.isort]
+line_length = 100
+profile = "black"
+py_version = 311
+sections = [
+  'FUTURE',
+  'STDLIB',
+  'THIRDPARTY',
+  'FIRSTPARTY',
+  'LOCALFOLDER',
+  # 'TESTS', # no tests at the moment
+]
+skip_gitignore = true
+src_paths = ["src", "tests"]
+
+[tool.mypy]
+disallow_incomplete_defs = true
+exclude = ["^build/", "^tests/"]
+follow_imports = "silent"
+ignore_missing_imports = true
+no_implicit_optional = false
+python_version = "3.11"
+show_column_numbers = true
+show_error_codes = true
+warn_no_return = true
+warn_return_any = false
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+addopts = "--maxfail=25 --cov-report=html --cov-report=term --no-cov-on-fail -ra"
+# uncomment to enable log display during test run, not just on failure.
+# use log_cli_level to customize the log level log_cli, as it does not use the environment setting
+# log_cli = true
+# log_cli_level = 'info'
+log_format = "%(asctime)s|%(levelname).3s|%(name)s:%(funcName)s:%(lineno)d|%(message)s"
+
+[tool.flake8]
+docstring-convention = "google"
+exclude = [".git", "__pycache__", "build"]
+extend-ignore = ["E203", "E265", "E402", "W503", "D401", "B024", "D418", "D105"]
+max-line-length = 101
+per-file-ignores = ["__init__.py:F401"]

@@ -1,0 +1,23 @@
+name: vacation_calendar
+
+dependencies:
+  - bandit
+  - black[jupyter]
+  - flake8
+  - flake8-bugbear
+  - flake8-docstrings
+  - flake8-pyproject
+  - holidays
+  - isort
+  - jupyter
+  - matplotlib
+  - mypy
+  - numba
+  - pandas-stubs
+  - pandas[performance]
+  - pip
+  - plotly
+  - pyarrow
+  - python=3.11
+  - streamlit
+  - pyupgrade
