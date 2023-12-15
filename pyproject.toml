@@ -46,7 +46,6 @@ version = { attr = "vacation_calendar.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["vacation_calendar"]
-where = ["src"]
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
@@ -90,7 +89,7 @@ warn_unused_configs = true
 warn_unused_ignores = true
 
 [tool.pytest.ini_options]
-addopts = "--maxfail=25 --cov-report=html --cov-report=term --no-cov-on-fail -ra"
+# addopts = "--maxfail=25 --cov-report=html --cov-report=term --no-cov-on-fail -ra"
 # uncomment to enable log display during test run, not just on failure.
 # use log_cli_level to customize the log level log_cli, as it does not use the environment setting
 # log_cli = true
