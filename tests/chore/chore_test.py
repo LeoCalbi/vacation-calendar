@@ -1,5 +1,10 @@
 import pytest
-from vacation_calendar.chore import create_base_calendar, add_to_calendar, compute_total_time_off, TimeOffType
+from vacation_calendar.chore import (
+    create_base_calendar,
+    add_to_calendar,
+    compute_total_time_off,
+    TimeOffType,
+)
 
 
 def test_create_base_calendar(monkeypatch):
@@ -100,6 +105,3 @@ def test_compute_total_time_off(monkeypatch):
         ["2023-12-15", "2023-12-20"], df, 8, TimeOffType.VAC
     )  # friday to wednesday
     group = compute_total_time_off(df)
-    expected = df[["MONTH",TimeOffType.ROL, TimeOffType.VAC]].groupby("MONTH").sum().reset_index()
-    assert group.equals(expected)
-

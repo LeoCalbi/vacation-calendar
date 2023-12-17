@@ -1,5 +1,5 @@
 from os.path import exists
-from enum import Enum
+from enum import StrEnum
 import json
 import pandas as pd
 import numpy as np
@@ -14,11 +14,19 @@ current_year = datetime.datetime.now().year
 country = "IT"
 subdiv = "BO"
 WORKING_HOURS = 8
+MONTHLY_ROL = 8.66
+MONTHLY_VAC = 13.34
+AP_ROL = 20.3  # from config (ROL anno precedente)
+AP_VAC = 25.5  # from config) (VAC anno precedente)
 
 
-class TimeOffType(Enum):
+class TimeOffType(StrEnum):
     VAC = "VACATION"
-    ROL = "PTF"  # Paid Time Off
+    ROL = "PTO"  # Paid Time Off
+    VAC_MAT = "VAC_MAT"
+    ROL_MAT = "PTO_MAT"
+    VAC_TOT = "VAC_TOT"
+    ROL_TOT = "PTO_TOT"
 
 
 def read_config():
@@ -70,7 +78,7 @@ def add_to_calendar(
         ttype (TimeOffType): the type of time off; ROL for PaidTimeOff, VAC for Vacation.
     Returns:
         (pd.DataFrame): the df with the added time off
-    Raises: 
+    Raises:
         ValueError if:
         - `value` is higher than the `WORKING_HOURS`
         - the chosen date is not present in the calendar
@@ -92,19 +100,21 @@ def add_to_calendar(
 
 
 @add_to_calendar.register
-def add_range_to_calendar(date: list, df: pd.DataFrame, value: float, ttype: TimeOffType) -> pd.DataFrame:
+def add_range_to_calendar(
+    date: list, df: pd.DataFrame, value: float, ttype: TimeOffType
+) -> pd.DataFrame:
     """
     Add the input value to the calendar, in the passed date range. If weekends or holidays fall in the range,
-    they will be removed. 
+    they will be removed.
     Args:
-        date (Union[List[datetime.date], List[str]]): list containing the start and the end dates in which 
+        date (Union[List[datetime.date], List[str]]): list containing the start and the end dates in which
             the time off will be taken
         df (pd.DataFrame): input calendar df
         value (float): amount of time off hours. Canno be higher than the `WORKING_HOURS`
         ttype (TimeOffType): the type of time off; ROL for PaidTimeOff, VAC for Vacation.
     Returns:
         (pd.DataFrame): the df with the added time off
-    Raises: 
+    Raises:
         ValueError if:
         - the start date is after the end date
         - `value` is higher than the `WORKING_HOURS`
@@ -131,12 +141,43 @@ def add_range_to_calendar(date: list, df: pd.DataFrame, value: float, ttype: Tim
 
 def compute_total_time_off(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Groups the dataframe my month computing the sum
+    Groups the dataframe my month computing the sum and compute the total vacations and 
+    paid time off hours left
     Args:
         df (pd.Dataframe): the calendar dataframe
     Returns:
         (pd.DataFrame): a grouped dataframe with the sum of the time off days
     """
     mask = df.YEAR == current_year
-    group = df[mask][["MONTH",TimeOffType.ROL,TimeOffType.VAC]].groupby("MONTH").sum().reset_index()
+    group = (
+        df[mask][["MONTH", TimeOffType.ROL, TimeOffType.VAC]].groupby("MONTH").sum().reset_index()
+    )
+    group[TimeOffType.ROL_MAT] = MONTHLY_ROL
+    group[TimeOffType.VAC_MAT] = MONTHLY_VAC
+    group[TimeOffType.ROL_MAT] = group[TimeOffType.ROL_MAT].cumsum()
+    group[TimeOffType.VAC_MAT] = group[TimeOffType.VAC_MAT].cumsum()
+    first_month_mask = group.MONTH == 1
+    group.loc[first_month_mask, TimeOffType.VAC_TOT] = (
+        AP_VAC
+        + group.loc[first_month_mask, TimeOffType.VAC_MAT]
+        - group.loc[first_month_mask, TimeOffType.VAC]
+    )
+    group.loc[first_month_mask, TimeOffType.ROL_TOT] = (
+        AP_ROL
+        + group.loc[first_month_mask, TimeOffType.ROL_MAT]
+        - group.loc[first_month_mask, TimeOffType.ROL]
+    )
+    first_month_vac = group.loc[first_month_mask].iloc[0][TimeOffType.VAC_TOT]
+    first_month_rol = group.loc[first_month_mask].iloc[0][TimeOffType.ROL_TOT]
+    group.loc[~first_month_mask, TimeOffType.VAC_TOT] = (
+        first_month_vac
+        + group.loc[~first_month_mask, TimeOffType.VAC_MAT]
+        - group.loc[~first_month_mask, TimeOffType.VAC]
+    )
+    group.loc[~first_month_mask,TimeOffType.ROL_TOT] = (
+        first_month_rol
+        + group.loc[~first_month_mask, TimeOffType.ROL_MAT]
+        - group.loc[~first_month_mask, TimeOffType.ROL]
+    )
+
     return group
