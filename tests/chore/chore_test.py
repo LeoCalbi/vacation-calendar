@@ -1,5 +1,5 @@
 import pytest
-from vacation_calendar.chore import create_base_calendar, add_to_calendar, TimeOffType
+from vacation_calendar.chore import create_base_calendar, add_to_calendar, compute_total_time_off, TimeOffType
 
 
 def test_create_base_calendar(monkeypatch):
@@ -91,3 +91,15 @@ def test_add_range_to_calendar_exceed_free_hours(monkeypatch):
     df = create_base_calendar()
     with pytest.raises(ValueError, match="The amount per day cannot be higher"):
         add_to_calendar(["2023-12-15", "2023-12-20"], df, 100, TimeOffType.ROL)
+
+
+def test_compute_total_time_off(monkeypatch):
+    monkeypatch.setattr("vacation_calendar.chore.current_year", 2023)
+    df = create_base_calendar()
+    df = add_to_calendar(
+        ["2023-12-15", "2023-12-20"], df, 8, TimeOffType.VAC
+    )  # friday to wednesday
+    group = compute_total_time_off(df)
+    expected = df[["MONTH",TimeOffType.ROL, TimeOffType.VAC]].groupby("MONTH").sum().reset_index()
+    assert group.equals(expected)
+

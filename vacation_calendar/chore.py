@@ -42,6 +42,7 @@ def create_base_calendar() -> pd.DataFrame:
     dates = pd.date_range(start=start, end=end, freq="D")
     dates_df = dates.to_frame(index=False, name="DATE")
     dates_df["MONTH"] = dates_df.DATE.apply(lambda ser: ser.month)
+    dates_df["YEAR"] = dates_df.DATE.apply(lambda ser: ser.year)
     dates_df["IS_WEEKEND"] = dates_df["DATE"].dt.dayofweek.isin([5, 6])
     dates_df["HOLIDAY"] = (
         dates_df["DATE"]
@@ -126,3 +127,16 @@ def add_range_to_calendar(date: list, df: pd.DataFrame, value: float, ttype: Tim
 
     df.loc[mask, ttype] = value
     return df
+
+
+def compute_total_time_off(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Groups the dataframe my month computing the sum
+    Args:
+        df (pd.Dataframe): the calendar dataframe
+    Returns:
+        (pd.DataFrame): a grouped dataframe with the sum of the time off days
+    """
+    mask = df.YEAR == current_year
+    group = df[mask][["MONTH",TimeOffType.ROL,TimeOffType.VAC]].groupby("MONTH").sum().reset_index()
+    return group
