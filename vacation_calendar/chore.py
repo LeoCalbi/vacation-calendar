@@ -2,6 +2,7 @@ from os.path import exists
 from enum import Enum
 import json
 import pandas as pd
+import numpy as np
 import datetime
 import holidays
 
@@ -10,6 +11,7 @@ CONFIG_PATH = "config.json"
 current_year = datetime.datetime.now().year
 country = "IT"
 subdiv = "BO"
+WORKING_HOURS = 8
 
 class TimeOffType(Enum):
     VAC = "VACATION"
@@ -31,7 +33,7 @@ def create_base_calendar():
     dates = pd.date_range(start=start, end=end, freq="D")
     dates_df = dates.to_frame(index=False, name="DATE")
     dates_df["MONTH"] = dates_df.DATE.apply(lambda ser: ser.month)
-    dates_df["WEEKEND"] = dates_df["DATE"].dt.dayofweek.isin([5, 6])
+    dates_df["IS_WEEKEND"] = dates_df["DATE"].dt.dayofweek.isin([5, 6])
     dates_df["HOLIDAY"] = (
         dates_df["DATE"]
         .apply(
@@ -39,6 +41,7 @@ def create_base_calendar():
         )
         .astype("category")
     )
+    dates_df["IS_HOLIDAY"] = np.where(dates_df["HOLIDAY"].notna(),True, False)
     dates_df[TimeOffType.VAC] = 0.
     dates_df[TimeOffType.ROL] = 0.
     return dates_df
@@ -47,8 +50,13 @@ def create_base_calendar():
 def add_to_calendar(df: pd.DataFrame, date:"datetime.datetime", value:float, col:str):
 
     mask = df.DATE == date
-    if df[mask][[TimeOffType.VAC, TimeOffType.ROL]].sum().sum() + value > 8:
-        raise ValueError("The amount of hours per day cannot be higher than the working hours.")
+
+    if df[mask].empty:
+        raise ValueError(f"The chosen date '{date}' does not exist in the calendar")
+    if (df[mask][["IS_WEEKEND","IS_HOLIDAY"]]).any().any():
+        raise ValueError("The chosen day is a weekend or holiday")
+    if value > WORKING_HOURS:
+        raise ValueError("The amount per day cannot be higher than the working hours.")
     df.loc[mask, col] = value
     return df
 
