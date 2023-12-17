@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from os.path import exists
 from datetime import datetime
+
 CALENDAR_PATH = "calendar2023.parquet"
 CONFIG_PATH = "config.json"
 
@@ -31,14 +32,8 @@ else:
             pvr = st.number_input("Prevuous year ROL")
 
 
-
 # st.write(df)
-
-
 
 
 # start_date = st.date_input("Start Date")
 # end_date = st.date_input("End Date")
-
-
-
