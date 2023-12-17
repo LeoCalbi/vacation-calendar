@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import datetime
 import holidays
+from typing import List
 
 # NOTE: the following lines will be taken from settings
 CONFIG_PATH = "config.json" 
@@ -47,19 +48,38 @@ def create_base_calendar():
     return dates_df
 
 
-def add_to_calendar(df: pd.DataFrame, date:"datetime.datetime", value:float, col:str):
-
+def add_to_calendar(df: pd.DataFrame, date:datetime.datetime, value:float, ttype:TimeOffType):
+    if value > WORKING_HOURS:
+        raise ValueError("The amount per day cannot be higher than the working hours.")
+    
     mask = df.DATE == date
 
     if df[mask].empty:
         raise ValueError(f"The chosen date '{date}' does not exist in the calendar")
+
+    
     if (df[mask][["IS_WEEKEND","IS_HOLIDAY"]]).any().any():
         raise ValueError("The chosen day is a weekend or holiday")
-    if value > WORKING_HOURS:
-        raise ValueError("The amount per day cannot be higher than the working hours.")
-    df.loc[mask, col] = value
+
+    df.loc[mask, ttype] = value
     return df
 
+def add_range_to_calendar(df: pd.DataFrame, date: List[datetime.datetime], value: float, ttype: TimeOffType):
+    start_date = date[0]
+    end_date = date[1]
+    if start_date > end_date:
+        raise ValueError(f"The start date cannot be after the end date. Start: f{start_date}, End: {end_date}")
+    
+    if value > WORKING_HOURS:
+        raise ValueError("The amount per day cannot be higher than the working hours.")
+    
+    mask = (df.DATE >= start_date) & (df.DATE <= end_date)
+    mask &= ~df[mask][["IS_HOLIDAY","IS_WEEKEND"]].any(axis=1)
+    if df[mask].empty:
+        raise ValueError(f"The chosen dates range'{date}' does not exist in the calendar")
+
+    df.loc[mask, ttype] = value
+    return df
 
 
     
