@@ -5,7 +5,8 @@ import pandas as pd
 import numpy as np
 import datetime
 import holidays
-from typing import List
+from typing import List, Union, overload
+from functools import singledispatch
 
 # NOTE: the following lines will be taken from settings
 CONFIG_PATH = "config.json" 
@@ -48,7 +49,8 @@ def create_base_calendar():
     return dates_df
 
 
-def add_to_calendar(df: pd.DataFrame, date:datetime.datetime, value:float, ttype:TimeOffType):
+@singledispatch
+def add_to_calendar(date:Union[datetime.date, str], df: pd.DataFrame,  value:float, ttype:TimeOffType):
     if value > WORKING_HOURS:
         raise ValueError("The amount per day cannot be higher than the working hours.")
     
@@ -64,7 +66,8 @@ def add_to_calendar(df: pd.DataFrame, date:datetime.datetime, value:float, ttype
     df.loc[mask, ttype] = value
     return df
 
-def add_range_to_calendar(df: pd.DataFrame, date: List[datetime.datetime], value: float, ttype: TimeOffType):
+@add_to_calendar.register
+def add_range_to_calendar(date: list ,df: pd.DataFrame, value: float, ttype: TimeOffType):
     start_date = date[0]
     end_date = date[1]
     if start_date > end_date:
@@ -82,4 +85,5 @@ def add_range_to_calendar(df: pd.DataFrame, date: List[datetime.datetime], value
     return df
 
 
-    
+@overload
+def add_range_to_calendar(date: List[Union[datetime.datetime, str]],df: pd.DataFrame, value: float, ttype: TimeOffType): ...
