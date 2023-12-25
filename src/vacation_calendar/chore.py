@@ -140,15 +140,25 @@ def add_range_to_calendar(
 
 
 
-def _compute_residual_time(df, time_type: str) -> pd.DataFrame:
+def _compute_residual_time(df: pd.DataFrame, time_type: str) -> pd.DataFrame:
+    """
+    Given the monthly aggregated dataframe, compute the residual time off/vacation
+    using the time off of the previous year and the time generated during the whole year.
+    Returns the aggregated dataframe with new columns
+    Args:
+        df (pd.DataFrame): the input dataframe
+        time_type (str): the type of time off. It can be ROL for paid time off or VAC
+            for vacation.
+    """
     MAT = getattr(TimeOffType, f"{time_type}_MAT")
     RES = getattr(TimeOffType, f"{time_type}_RES")
     TIME = getattr(TimeOffType, time_type)
     MONTHLY_QTY = MONTHLY_ROL if time_type == "ROL" else MONTHLY_VAC
+    AP_TIME = AP_ROL if time_type == "ROL" else AP_VAC
     df[MAT] = MONTHLY_QTY
     df[MAT] = df[MAT].cumsum()
     df[RES] = df[MAT] - df[TIME]
-    df[RES] = df[RES] + AP_VAC
+    df[RES] = df[RES] + AP_TIME
     return df
 
 
