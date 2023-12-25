@@ -25,8 +25,8 @@ class TimeOffType(StrEnum):
     ROL = "PTO"  # Paid Time Off
     VAC_MAT = "VAC_MAT"
     ROL_MAT = "PTO_MAT"
-    VAC_TOT = "VAC_TOT"
-    ROL_TOT = "PTO_TOT"
+    VAC_RES = "VAC_RES"
+    ROL_RES = "PTO_RES"
 
 
 def read_config():
@@ -139,9 +139,24 @@ def add_range_to_calendar(
     return df
 
 
+
+def _compute_residual_time(df, time_type: str) -> pd.DataFrame:
+    MAT = getattr(TimeOffType, f"{time_type}_MAT")
+    RES = getattr(TimeOffType, f"{time_type}_RES")
+    TIME = getattr(TimeOffType, time_type)
+    MONTHLY_QTY = MONTHLY_ROL if time_type == "ROL" else MONTHLY_VAC
+    df[MAT] = MONTHLY_QTY
+    df[MAT] = df[MAT].cumsum()
+    df[RES] = df[MAT] - df[TIME]
+    df[RES] = df[RES] + AP_VAC
+    return df
+
+
+
+
 def compute_total_time_off(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Groups the dataframe my month computing the sum and compute the total vacations and 
+    Groups the dataframe my month computing the sum and compute the total vacations and
     paid time off hours left
     Args:
         df (pd.Dataframe): the calendar dataframe
@@ -152,32 +167,9 @@ def compute_total_time_off(df: pd.DataFrame) -> pd.DataFrame:
     group = (
         df[mask][["MONTH", TimeOffType.ROL, TimeOffType.VAC]].groupby("MONTH").sum().reset_index()
     )
-    group[TimeOffType.ROL_MAT] = MONTHLY_ROL
-    group[TimeOffType.VAC_MAT] = MONTHLY_VAC
-    group[TimeOffType.ROL_MAT] = group[TimeOffType.ROL_MAT].cumsum()
-    group[TimeOffType.VAC_MAT] = group[TimeOffType.VAC_MAT].cumsum()
-    first_month_mask = group.MONTH == 1
-    group.loc[first_month_mask, TimeOffType.VAC_TOT] = (
-        AP_VAC
-        + group.loc[first_month_mask, TimeOffType.VAC_MAT]
-        - group.loc[first_month_mask, TimeOffType.VAC]
-    )
-    group.loc[first_month_mask, TimeOffType.ROL_TOT] = (
-        AP_ROL
-        + group.loc[first_month_mask, TimeOffType.ROL_MAT]
-        - group.loc[first_month_mask, TimeOffType.ROL]
-    )
-    first_month_vac = group.loc[first_month_mask].iloc[0][TimeOffType.VAC_TOT]
-    first_month_rol = group.loc[first_month_mask].iloc[0][TimeOffType.ROL_TOT]
-    group.loc[~first_month_mask, TimeOffType.VAC_TOT] = (
-        first_month_vac
-        + group.loc[~first_month_mask, TimeOffType.VAC_MAT]
-        - group.loc[~first_month_mask, TimeOffType.VAC]
-    )
-    group.loc[~first_month_mask,TimeOffType.ROL_TOT] = (
-        first_month_rol
-        + group.loc[~first_month_mask, TimeOffType.ROL_MAT]
-        - group.loc[~first_month_mask, TimeOffType.ROL]
-    )
+    group = _compute_residual_time(group, "ROL")
+    group = _compute_residual_time(group, "VAC")
 
     return group
+
+

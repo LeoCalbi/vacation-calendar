@@ -100,8 +100,13 @@ def test_add_range_to_calendar_exceed_free_hours(monkeypatch):
 
 def test_compute_total_time_off(monkeypatch):
     monkeypatch.setattr("vacation_calendar.chore.current_year", 2023)
+    monkeypatch.setattr("vacation_calendar.chore.AP_VAC", 1)
+    monkeypatch.setattr("vacation_calendar.chore.MONTHLY_VAC", 1)
+
+
     df = create_base_calendar()
     df = add_to_calendar(
         ["2023-12-15", "2023-12-20"], df, 8, TimeOffType.VAC
-    )  # friday to wednesday
+    )  # friday to wednesday, 32 hours
     group = compute_total_time_off(df)
+    assert set(group[TimeOffType.VAC_RES].astype(int).values) == set(list(range(2,13))+[-19])

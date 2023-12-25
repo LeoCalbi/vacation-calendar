@@ -46,7 +46,7 @@ version = { attr = "vacation_calendar.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["vacation_calendar"]
-
+where=["src"]
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
 
