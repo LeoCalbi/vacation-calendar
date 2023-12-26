@@ -7,7 +7,7 @@ authors = [
   { name = "Leonardo Calbi", email = "leocalbi@gmail.com" },
   { name = "Marcello De Giorgi", email = "degiorgimarcello@gmail.com" },
 ]
-dependencies = ["jupyter", "pandas", "holidays", "streamlit"]
+dependencies = ["jupyter", "pandas", "holidays", "streamlit", "streamlit-calendar"]
 description = """\
   Work holiday management tool.\
   """
