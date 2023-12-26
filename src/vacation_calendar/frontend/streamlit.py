@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 from os.path import exists
-from datetime import datetime
-from vacation_calendar.chore import create_base_calendar, compute_total_time_off
+from datetime import datetime, date
+from vacation_calendar.chore import create_base_calendar, compute_total_time_off, add_to_calendar
 from streamlit_calendar import calendar
 
 CALENDAR_PATH = "calendar2023.parquet"
@@ -33,6 +33,7 @@ else:
             pvc = st.number_input("Previous year vacation")
             pvr = st.number_input("Prevuous year ROL")
             df = create_base_calendar()
+            df.to_parquet(CALENDAR_PATH)
 
 
 def _generate_weekends_from(df) -> list:
@@ -51,8 +52,9 @@ def _generate_weekends_from(df) -> list:
     ]
     return we_list
 
+
 def _generate_holidays_view_from(df):
-    holidays = df[df.IS_HOLIDAY][["DATE","HOLIDAY"]]
+    holidays = df[df.IS_HOLIDAY][["DATE", "HOLIDAY"]]
     holidays_list = [
         {
             "start": str(date.DATE),
@@ -67,14 +69,19 @@ def _generate_holidays_view_from(df):
         for _, date in holidays.iterrows()
     ]
     return holidays_list
-  
+
+
 def generate_calendar_view_from(df):
-    calendar_options = {"editable": True, "selectable": True}
+    start = str(date(date.today().year, 1, 1))
+    end = str(date(date.today().year, 12, 31))
     calendar_events = _generate_weekends_from(df)
     calendar_events += _generate_holidays_view_from(df)
-        
-    
 
+    calendar_options = {
+        "editable": True,
+        "selectable": True,
+        "validRange": {"start": start, "end": end},
+    }
     custom_css = """
         .fc-event-past {
             opacity: 0.8;
@@ -95,12 +102,31 @@ def generate_calendar_view_from(df):
             font-size: 2rem;
         }
     """
-    cal = calendar(options=calendar_options, events=calendar_events, custom_css=custom_css)
-
-    st.write(cal)
+    calendar(options=calendar_options, events=calendar_events, custom_css=custom_css)
 
 
 generate_calendar_view_from(df)
 
-# start_date = st.date_input("Start Date")
-# end_date = st.date_input("End Date")
+st.header("Add vacations of PTO")
+col1, col2 = st.columns(2)
+col3, col4 = st.columns(2)
+
+with col1:
+    start_date = datetime.strftime(col1.date_input("Start Date"), "%Y-%m-%d")
+with col2:
+    end_date = datetime.strftime(col2.date_input("End Date"), "%Y-%m-%d")
+with col3:
+    amount_hour = col3.number_input(
+        "Amount of hours",
+        0,
+        8,
+        help="Amount of hours of PTO or VAC per day. "
+        "In case start and end dates are different, the same amount of hours is repeated for each day.",
+    )
+with col4:
+    amount_type = col4.radio("Type", ["VAC", "PTO"])
+
+s = st.button("Save")
+if s:
+    dates = start_date if start_date == end_date else [start_date, end_date]
+    df = add_to_calendar(dates, df, amount_hour, amount_type)
