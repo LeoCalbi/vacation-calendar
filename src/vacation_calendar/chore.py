@@ -67,7 +67,7 @@ def create_base_calendar() -> pd.DataFrame:
 
 @singledispatch
 def add_to_calendar(
-    date: Union[datetime.date, str], df: pd.DataFrame, value: float, ttype: TimeOffType
+    date: datetime.date | str, df: pd.DataFrame, value: float, ttype: TimeOffType
 ) -> pd.DataFrame:
     """
     Add the input value to the calendar, at the passed date.
@@ -101,7 +101,7 @@ def add_to_calendar(
 
 @add_to_calendar.register
 def add_range_to_calendar(
-    date: list, df: pd.DataFrame, value: float, ttype: TimeOffType
+    date: tuple[datetime.date, datetime.date], df: pd.DataFrame, value: float, ttype: TimeOffType
 ) -> pd.DataFrame:
     """
     Add the input value to the calendar, in the passed date range. If weekends or holidays fall in the range,
