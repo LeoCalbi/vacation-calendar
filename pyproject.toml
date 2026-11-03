@@ -36,6 +36,11 @@ repository = "https://github.com/LeoCalbi/vacation-calendar"
 [tool.hatch.build.targets.wheel]
 packages = ["src/vacation_calendar"]
 
+# An allowlist: hatch skips .gitignore'd files only, so any other untracked file in the
+# working tree would otherwise ship in the sdist.
+[tool.hatch.build.targets.sdist]
+only-include = ["LICENSE", "README.md", "pyproject.toml", "src", "tests"]
+
 # Pixi: the dev environment runs the newest supported Python; the py3XX environments
 # run the test suite on each supported version.
 [tool.pixi.workspace]
