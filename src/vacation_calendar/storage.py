@@ -74,6 +74,9 @@ hours = {{ mon = 8, tue = 8, wed = 8, thu = 8, fri = 8 }}
 name = "Vacation"
 unit = "days"  # hours, days (working days) or calendar_days
 accrual = [{{ valid_from = {year}-01-01, yearly = 20 }}]  # placeholder; or per_year, monthly
+
+# [absences.blood_donation]  # a kind of day off that uses no balance
+# name = "Blood donation"
 """
 
 
@@ -147,7 +150,7 @@ def check_folder(folder: Path, edited: "YearFile | None" = None) -> tuple[Config
     if edited is not None:
         plans[edited.year] = edited.plan()
     ordered = [plans[year] for year in sorted(plans)]
-    check_plans(ordered, config.buckets, WorkCalendar(config.calendar))
+    check_plans(ordered, config.buckets, WorkCalendar(config.calendar), config.absences)
     return config, ordered
 
 

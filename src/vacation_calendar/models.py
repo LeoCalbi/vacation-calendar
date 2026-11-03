@@ -3,7 +3,7 @@
 import datetime as dt
 import re
 from collections import defaultdict
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from decimal import Decimal
 from enum import StrEnum
 from functools import cached_property
@@ -95,23 +95,35 @@ class Bucket(Frozen):
         return effective(self.accrual, day)
 
 
-class Config(Frozen):
-    """The settings shared by every year: the work calendar and the buckets, by key.
+class Absence(Frozen):
+    """A kind of day off that uses no balance, such as a blood donation or a bereavement leave."""
 
+    name: str
+
+
+class Config(Frozen):
+    """The settings shared by every year: the work calendar, the buckets and absences, by key.
+
+    A leave names a bucket, whose balance it uses, or an absence, which only records the days.
     `payslip_lag` is how many months late payslips count leave: with 1, the payslip of June
     shows the accrual up to June but the leave only up to May, as many payrolls do.
     """
 
     calendar: CalendarConfig
     buckets: dict[str, Bucket] = Field(min_length=1)
+    absences: dict[str, Absence] = Field(default_factory=dict)
     payslip_lag: int = Field(default=0, ge=0, le=12)
 
     @model_validator(mode="after")
-    def _check_closure_buckets(self) -> Self:
+    def _check_keys(self) -> Self:
         for closure in self.calendar.closures:
             if closure.bucket not in self.buckets:
                 msg = f"closure {closure.name!r}: {_unknown(closure.bucket, self.buckets)}"
                 raise ValueError(msg)
+        shared = sorted(set(self.buckets) & set(self.absences))
+        if shared:
+            msg = f"{', '.join(shared)}: both a bucket and an absence; give them different keys"
+            raise ValueError(msg)
         return self
 
 
@@ -239,23 +251,21 @@ class PlanError(ValueError):
 
 
 def check_plans(
-    plans: Sequence[YearPlan], buckets: Mapping[str, Bucket], calendar: WorkCalendar
+    plans: Sequence[YearPlan],
+    buckets: Mapping[str, Bucket],
+    calendar: WorkCalendar,
+    absences: Collection[str] = (),
 ) -> None:
     """Raise `PlanError` with every problem in `plans`, or return if they fit the configuration.
 
     The plans are checked together, because a leave filed under one year can end in the next.
-    Problems: two plans for one year, a bucket that is not configured, hours on a bucket that
-    counts calendar days, a leave outside the work schedule, and leaves on one day that total
-    more than its hours.
+    Problems: two plans for one year, a bucket that is not configured (a leave may also name one
+    of `absences`, a carry-over or payslip may not), hours on a bucket that counts calendar
+    days, a leave outside the work schedule, and leaves on one day that total more than its hours.
     """
     years = [plan.year for plan in plans]
     problems = [f"two plans for {year}" for year in sorted(set(years)) if years.count(year) > 1]
-    problems += [
-        f"{where}: {_unknown(key, buckets)}"
-        for plan in plans
-        for where, key in _bucket_references(plan)
-        if key not in buckets
-    ]
+    problems += _key_problems(plans, buckets, absences)
     booked: defaultdict[dt.date, Decimal] = defaultdict(Decimal)
     for leave in (leave for plan in plans for leave in plan.leaves):
         bucket = buckets.get(leave.bucket)
@@ -277,15 +287,31 @@ def check_plans(
         raise PlanError(problems)
 
 
-def _bucket_references(plan: YearPlan) -> Iterator[tuple[str, str]]:
+def _key_problems(
+    plans: Sequence[YearPlan], buckets: Mapping[str, Bucket], absences: Collection[str]
+) -> Iterator[str]:
+    """Yield a problem for each key that names no bucket (or, for a leave, no absence)."""
+    for plan in plans:
+        for where, key, is_leave in _bucket_references(plan):
+            if key in buckets or (is_leave and key in absences):
+                continue
+            if key in absences:
+                yield f"{where}: absence {key!r} has no balance"
+            else:
+                known = [*buckets, *absences] if is_leave else buckets
+                yield f"{where}: {_unknown(key, known)}"
+
+
+def _bucket_references(plan: YearPlan) -> Iterator[tuple[str, str, bool]]:
+    """Yield where each key is named, the key, and whether a leave names it."""
     for key in plan.carry_over:
-        yield f"carry_over {plan.year}", key
+        yield f"carry_over {plan.year}", key, False
     for leave in plan.leaves:
-        yield str(leave), leave.bucket
+        yield str(leave), leave.bucket, True
     for payslip in plan.payslips:
         for key in payslip.balances:
-            yield f"payslip {payslip.month:%Y-%m}", key
+            yield f"payslip {payslip.month:%Y-%m}", key, False
 
 
-def _unknown(key: str, buckets: Mapping[str, Bucket]) -> str:
-    return f"unknown bucket {key!r}; configured: {', '.join(sorted(buckets)) or 'none'}"
+def _unknown(key: str, known: Collection[str]) -> str:
+    return f"unknown bucket {key!r}; configured: {', '.join(sorted(known)) or 'none'}"

@@ -102,6 +102,26 @@ def bucket_table(
     return table
 
 
+def absence_table(ledger: Ledger, config: Config, first: dt.date, last: dt.date) -> Table | None:
+    """Return the working days of each absence by month from `first` to `last`, if any."""
+    keys = [
+        key
+        for key, by_month in ledger.absences.items()
+        if any(first <= month <= last for month in by_month)
+    ]
+    if not keys:
+        return None
+    table = Table(title="Other absences (days)", box=box.SIMPLE_HEAD)
+    table.add_column("Month", no_wrap=True)
+    for key in keys:
+        table.add_column(config.absences[key].name, justify="right", no_wrap=True)
+    months = sorted({month for key in keys for month in ledger.absences[key]})
+    for month in (month for month in months if first <= month <= last):
+        cells = [amount(ledger.absences[key].get(month)) for key in keys]
+        table.add_row(f"{month:%Y-%m}", *cells)
+    return table
+
+
 def notice_lines(notices: Iterable[Notice]) -> list[str]:
     """Return one line per notice, dated."""
     return [f"{notice.day}  {notice.message}" for notice in notices]
@@ -145,14 +165,14 @@ def leaves_ics(
         for index, leave in enumerate(plan.leaves, start=1):
             if leave.last < first or leave.first > _month_end(last):
                 continue
-            bucket = config.buckets[leave.bucket]
+            kind = config.buckets.get(leave.bucket) or config.absences[leave.bucket]
             event = Event()
             event.add("uid", f"{plan.year}-{index}-{leave.first:%Y%m%d}@vacation-calendar")
             event.add("dtstamp", stamp)
             event.add("dtstart", leave.first)
             event.add("dtend", leave.last + dt.timedelta(days=1))
             planned = " (planned)" if leave.state is LeaveState.PLANNED else ""
-            event.add("summary", f"{bucket.name}{planned}")
+            event.add("summary", f"{kind.name}{planned}")
             if leave.hours is not None:
                 event.add("description", f"{amount(leave.hours)} h a day")
             event.add("transp", "OPAQUE")

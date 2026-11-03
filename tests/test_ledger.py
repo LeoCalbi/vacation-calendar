@@ -13,7 +13,7 @@ from vacation_calendar.ledger import (
     NoticeKind,
     build_ledger,
 )
-from vacation_calendar.models import Accrual, Bucket, Config, PayslipMode, Unit, YearPlan
+from vacation_calendar.models import Absence, Accrual, Bucket, Config, PayslipMode, Unit, YearPlan
 from vacation_calendar.schedule import ScheduleEntry, WeekHours
 from vacation_calendar.work_calendar import CalendarConfig, Closure
 
@@ -458,3 +458,37 @@ def test_an_override_sets_the_closing_to_the_payslip(year_plan: YearPlan, lag: i
                 assert row.closing + unseen == balance
             else:
                 assert row.closing + unseen == balance - (row.delta or 0)
+
+
+ABSENT = CONFIG.model_copy(update={"absences": {"donation": Absence(name="Blood donation")}})
+
+
+def test_absences_use_no_balance_and_are_counted_by_working_day() -> None:
+    leaves = [
+        {"start": "2026-03-06", "end": "2026-03-09", "bucket": "donation", "state": "taken"},
+        {"date": "2026-04-01", "hours": 2, "bucket": "donation", "state": "taken"},
+        {"date": "2026-04-02", "hours": 4, "bucket": "donation"},
+    ]
+    result = ledger(plan(carry_over={"rol": 0}, leaves=leaves), config=ABSENT)
+    assert result.absences == {
+        "donation": {dt.date(2026, 3, 1): Decimal(2), dt.date(2026, 4, 1): Decimal("0.75")}
+    }  # Friday and Monday, not the weekend; 2 h and 4 h of 8 h days
+    assert result.rows == ledger(plan(carry_over={"rol": 0})).rows
+
+
+def test_absences_get_the_leave_notices() -> None:
+    leaves = [
+        {"date": "2025-12-27", "bucket": "donation"},  # a Saturday, before today
+    ]
+    result = ledger(plan(2025, carry_over=dict.fromkeys(BUCKETS, 0), leaves=leaves), config=ABSENT)
+    assert [notice.message for notice in result.notices] == [
+        "leave on 2025-12-27 is still planned; mark it taken or remove it",
+        "leave on 2025-12-27 has no working day for donation",
+    ]
+    assert result.absences == {}
+
+
+def test_absences_after_the_ledger_end_are_not_counted() -> None:
+    leave = {"start": "2026-12-31", "end": "2027-01-04", "bucket": "donation", "state": "taken"}
+    result = ledger(plan(carry_over={"rol": 0}, leaves=[leave]), config=ABSENT)
+    assert result.absences == {"donation": {dt.date(2026, 12, 1): Decimal(1)}}

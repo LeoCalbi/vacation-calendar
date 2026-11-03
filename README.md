@@ -125,10 +125,14 @@ accrual = [{ valid_from = 2025-01-01, monthly = 13.33 }]
 [buckets.rol]
 name = "Reduced working hours"
 accrual = [{ valid_from = 2025-01-01, monthly = 8.67 }]
+
+[absences.blood_donation]  # a day off that uses no balance
+name = "Blood donation"
 ```
 
 - `base` picks the public holidays: a `country` with an optional `subdiv` (region), or a financial `market`. Names are in the country's own language unless you set `language` (such as `"en_US"`); run `vacation-calendar holidays` to see them, since removals by name must match them exactly.
 - Holiday additions and closures fall on one `date`, on a `start`-`end` range, or on a `rule`: an iCalendar recurrence rule (RFC 5545 RRULE) such as `FREQ=YEARLY;BYMONTH=8;BYMONTHDAY=14`, with `BYEASTER=1` for days relative to Easter. Additions, removals and closures take optional `valid_from` and `valid_until` dates.
+- `[absences.KEY]` declares a kind of day off that uses no balance, such as a blood donation, a bereavement, an illness or a union permit: `add DATE -b KEY` records it like a leave, the report counts its working days by month under "Other absences", and the ICS export includes it. A carry-over or payslip cannot name one.
 - `[[extra_workdays]]` turns rest days into working days (`date`, range or `rule`, with optional `hours`); make-up days that the base already knows, as in China, are included without it.
 - A bucket's `accrual` is a list of dated entries: `monthly` is credited each month from `valid_from`, which must be the 1st; `per_year` is a yearly total credited each month from `valid_from` (also a 1st), a twelfth rounded to the cent with the cents left over on the first months of the year, so that 160 becomes 13.34 from January to April and 13.33 after, 160.00 a year, as some payrolls do; `yearly` is granted each year on the month and day of `valid_from`. Each entry applies until the next one starts, so seniority steps are entries with later dates.
 - Amounts have at most two decimals, like a payslip.

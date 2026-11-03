@@ -3,7 +3,7 @@
 import datetime as dt
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 
@@ -21,6 +21,8 @@ from vacation_calendar.work_calendar import Day, DayKind, WorkCalendar
 
 _ZERO = Decimal(0)
 _CENT = Decimal("0.01")
+_ABSENCE = Bucket(name="absence", unit=Unit.DAYS)
+"""How an absence counts its days: working days, a partial day as its share of the day's hours."""
 
 
 class NoticeKind(StrEnum):
@@ -74,10 +76,15 @@ class MonthRow:
 
 @dataclass(frozen=True, slots=True)
 class Ledger:
-    """The month rows of every bucket, by bucket key, and the notices, by date."""
+    """The month rows of every bucket, by bucket key, and the notices, by date.
+
+    `absences` holds, by absence key, the working days each month's absences cover (a partial
+    day counts its hours over the day's hours), for months with any.
+    """
 
     rows: Mapping[str, tuple[MonthRow, ...]]
     notices: tuple[Notice, ...]
+    absences: Mapping[str, Mapping[dt.date, Decimal]] = field(default_factory=dict)
 
 
 class NegativeBalanceError(ValueError):
@@ -123,7 +130,7 @@ def build_ledger(
     0. `today` decides which planned leaves are already past.
     """
     calendar = WorkCalendar(config.calendar)
-    check_plans(plans, config.buckets, calendar)
+    check_plans(plans, config.buckets, calendar, config.absences)
     if not plans:
         msg = "the ledger needs at least one year plan"
         raise ValueError(msg)
@@ -137,10 +144,11 @@ def build_ledger(
     notices = list(_leave_notices(plans, config.buckets, calendar, today))
     use = _usage(plans, config.buckets, calendar, start, end)
     rows = {key: tuple(_bucket_rows(key, config, months, use, notices)) for key in config.buckets}
+    absences = _absences(plans, config, calendar, start, end)
     negative = [notice for notice in notices if notice.kind is NoticeKind.NEGATIVE_BALANCE]
     if strict and negative:
         raise NegativeBalanceError(negative)
-    return Ledger(rows, tuple(sorted(notices, key=lambda notice: notice.day)))
+    return Ledger(rows, tuple(sorted(notices, key=lambda notice: notice.day)), absences)
 
 
 def _bucket_rows(
@@ -262,7 +270,9 @@ def _usage(
     """Sum the leave and closure use of each bucket by month, from `start` to the `end` month."""
     use: defaultdict[tuple[str, dt.date], _Use] = defaultdict(_Use)
     for leave in (leave for plan in plans for leave in plan.leaves):
-        bucket = buckets[leave.bucket]
+        bucket = buckets.get(leave.bucket)
+        if bucket is None:  # an absence uses no balance
+            continue
         for day in leave.days():
             amount = _leave_use(leave, bucket, calendar.day(day))
             if amount and start <= day.replace(day=1) <= end:
@@ -297,13 +307,34 @@ def _leave_notices(
     today: dt.date,
 ) -> Iterator[Notice]:
     for leave in (leave for plan in plans for leave in plan.leaves):
-        bucket = buckets[leave.bucket]
+        bucket = buckets.get(leave.bucket, _ABSENCE)
         if leave.state is LeaveState.PLANNED and leave.last < today:
             message = f"{leave} is still planned; mark it taken or remove it"
             yield Notice(NoticeKind.PAST_PLANNED, leave.first, message, leave.bucket)
         if not any(_leave_use(leave, bucket, calendar.day(day)) for day in leave.days()):
-            message = f"{leave} has no working day, so it uses no {leave.bucket}"
+            message = (
+                f"{leave} has no working day for {leave.bucket}"
+                if bucket is _ABSENCE
+                else f"{leave} has no working day, so it uses no {leave.bucket}"
+            )
             yield Notice(NoticeKind.NO_LEAVE_USED, leave.first, message, leave.bucket)
+
+
+def _absences(
+    plans: Sequence[YearPlan], config: Config, calendar: WorkCalendar, start: dt.date, end: dt.date
+) -> dict[str, dict[dt.date, Decimal]]:
+    """Count the working days of each absence by month, from `start` to the `end` month."""
+    days: defaultdict[str, defaultdict[dt.date, Decimal]] = defaultdict(
+        lambda: defaultdict(Decimal)
+    )
+    for leave in (leave for plan in plans for leave in plan.leaves):
+        if leave.bucket not in config.absences:
+            continue
+        for day in leave.days():
+            amount = _leave_use(leave, _ABSENCE, calendar.day(day))
+            if amount and start <= day.replace(day=1) <= end:
+                days[leave.bucket][day.replace(day=1)] += amount
+    return {key: dict(sorted(by_month.items())) for key, by_month in sorted(days.items())}
 
 
 def _credit(lots: defaultdict[int, Decimal], year: int, amount: Decimal) -> None:

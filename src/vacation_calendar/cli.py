@@ -86,7 +86,7 @@ BucketOption = Annotated[
     typer.Option(
         "--bucket",
         "-b",
-        help="Bucket key; may be left out when there is only one.",
+        help="Bucket or absence key; a bucket may be left out when it is the only one.",
         show_default=False,
     ),
 ]
@@ -313,6 +313,9 @@ def report_command(
         rows = [row for row in ledger.rows[key] if first <= row.month <= last]
         _show(report.bucket_table(key, bucket, rows, config, lots=lots))
         payslips_shown |= any(row.payslip is not None for row in rows)
+    absences = report.absence_table(ledger, config, first, last)
+    if absences is not None:
+        _show(absences)
     if config.payslip_lag and payslips_shown:
         months = f"{config.payslip_lag} month{'s' if config.payslip_lag > 1 else ''}"
         _say(f"Payslips count leave {months} late: Delta compares them with Close plus that leave.")
@@ -410,6 +413,10 @@ def _only_bucket(config: Config) -> str:
 
 
 def _year_end(ledger: Ledger, config: Config, key: str, year: int) -> str:
+    if key in config.absences:
+        by_month = ledger.absences.get(key, {})
+        days = sum((value for month, value in by_month.items() if month.year == year), Decimal(0))
+        return f"{key} in {year}: {report.amount(days)} days"
     row = next(row for row in ledger.rows[key] if row.month == dt.date(year, 12, 1))
     unit = _UNITS[config.buckets[key].unit]
     return f"{key} at the end of {year}: {report.amount(row.closing)} {unit}"

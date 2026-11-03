@@ -55,6 +55,11 @@ def table(output: str, title: str) -> dict[str, list[str]]:
     return rows
 
 
+def tables(output: str) -> int:
+    """Count the month-by-month tables in `output` by their header lines."""
+    return sum(line.split()[:1] == ["Month"] for line in output.splitlines())
+
+
 def year_text(folder: Path, year: int = 2026) -> str:
     return (folder / f"{year}.toml").read_text(encoding="utf-8")
 
@@ -283,6 +288,27 @@ def test_report_explains_a_payslip_lag(folder: Path) -> None:
     rows = table(output, "Ferie")
     assert rows["2026-09"][rows["Month"].index("Close")] == "66.47"
     assert rows["2026-09"][-1] == "66.47"  # September has no leave, so the payslip still matches
+
+
+def test_absences_are_recorded_reported_and_exported(folder: Path) -> None:
+    config = folder / "config.toml"
+    text = config.read_text("utf-8") + '\n[absences.donation]\nname = "Blood donation"\n'
+    config.write_text(text, encoding="utf-8")
+    assert tables(run(folder, "report", "2026-11")) == 2  # the two buckets only
+    output = run(folder, "add", "2026-11-20", "-b", "donation", "--taken")
+    assert output.splitlines()[-1] == "donation in 2026: 1.00 days"
+    assert "donation in 2026: 1.50 days" in run(folder, "add", "2026-12-01", "-b", "donation",
+                                                 "--hours", "4")  # fmt: skip
+    output = run(folder, "report", "2026-11..2026-12")
+    rows = table(output, "Other absences (days)")
+    assert rows["Month"] == ["Month", "Blood", "donation"]
+    assert (rows["2026-11"][1:], rows["2026-12"][1:]) == (["1.00"], ["0.50"])
+    assert tables(run(folder, "report", "2026-10")) == 2
+    assert list(table(run(folder, "report", "2026-12"), "Other absences")) == ["Month", "2026-12"]
+    assert table(output, "Ferie")["2026-12"][-2:] == ["74.46", "9.31"]  # balances unchanged
+    assert "SUMMARY:Blood donation" in run(folder, "export", "ics", "2026-11").splitlines()
+    error = run(folder, "payslip", "2026-11", "-b", "donation=1", code=1)
+    assert "error: payslip 2026-11: absence 'donation' has no balance" in error
 
 
 def test_report_strict_fails_on_a_negative_balance(folder: Path) -> None:

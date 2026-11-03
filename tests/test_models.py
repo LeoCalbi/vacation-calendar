@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from vacation_calendar.holiday_set import CountryBase
 from vacation_calendar.models import (
+    Absence,
     Accrual,
     Bucket,
     Config,
@@ -292,3 +293,48 @@ def test_leave_before_the_work_schedule_is_an_error() -> None:
     plans = [plan(leaves=[{"date": "2026-02-27", "bucket": "rol"}])]
     with pytest.raises(PlanError, match="leave on 2026-02-27: no work schedule before 2026-03-01"):
         check_plans(plans, BUCKETS, WorkCalendar(late_start))
+
+
+def absence_problems(*plans: YearPlan) -> tuple[str, ...]:
+    try:
+        check_plans(plans, BUCKETS, WorkCalendar(CALENDAR), {"blood_donation"})
+    except PlanError as error:
+        return error.problems
+    return ()
+
+
+def test_a_leave_may_name_an_absence_but_a_balance_may_not() -> None:
+    leave = {"date": "2026-03-04", "bucket": "blood_donation"}
+    assert absence_problems(plan(leaves=[leave])) == ()
+    assert absence_problems(
+        plan(
+            carry_over={"blood_donation": 1},
+            leaves=[{"date": "2026-03-05", "bucket": "pto"}],
+            payslips=[{"month": "2026-09", "mode": "check", "balances": {"blood_donation": 1}}],
+        )
+    ) == (
+        "carry_over 2026: absence 'blood_donation' has no balance",
+        (
+            "leave on 2026-03-05: unknown bucket 'pto';"
+            " configured: blood_donation, ferias, rol, vacation"
+        ),
+        "payslip 2026-09: absence 'blood_donation' has no balance",
+    )
+
+
+def test_an_absence_takes_the_day_s_hours_like_a_leave() -> None:
+    leaves = [
+        {"date": "2026-03-04", "bucket": "blood_donation"},
+        {"date": "2026-03-04", "hours": 2, "bucket": "rol"},
+    ]
+    assert absence_problems(plan(leaves=leaves)) == (
+        "2026-03-04: leaves total 10 h, but the schedule has 8 h",
+    )
+
+
+def test_an_absence_key_must_differ_from_the_bucket_keys() -> None:
+    assert Config(
+        calendar=CALENDAR, buckets=BUCKETS, absences={"union": Absence(name="Union permit")}
+    ).absences["union"] == Absence(name="Union permit")
+    with pytest.raises(ValidationError, match="rol: both a bucket and an absence"):
+        Config(calendar=CALENDAR, buckets=BUCKETS, absences={"rol": Absence(name="ROL")})
