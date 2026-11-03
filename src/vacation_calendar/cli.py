@@ -18,6 +18,7 @@ from rich.table import Table
 
 from vacation_calendar import report, storage
 from vacation_calendar.dates import effective
+from vacation_calendar.holiday_set import CountryBase
 from vacation_calendar.ledger import Ledger, build_ledger
 from vacation_calendar.models import (
     Config,
@@ -100,26 +101,39 @@ def main(ctx: typer.Context, data_dir: DataDir = None) -> None:
 @app.command()
 def init(
     ctx: typer.Context,
-    example: Annotated[
+    country: Annotated[
         str | None,
-        typer.Argument(
-            help="The example to start from; leave it out to list them.", show_default=False
+        typer.Option(
+            help="Country code of the public holidays, such as IT or US.", show_default=False
         ),
     ] = None,
-    sample: Annotated[
-        bool, typer.Option("--sample", help="Also copy the example's year file of sample leaves.")
-    ] = False,
+    subdiv: Annotated[
+        str | None,
+        typer.Option(
+            help="Code of a region of the country, such as BO (Bologna) or BY (Bavaria).",
+            show_default=False,
+        ),
+    ] = None,
+    source: Annotated[
+        Path | None,
+        typer.Option(
+            "--from",
+            file_okay=False,
+            help="Copy this data folder instead, such as one of the repository's examples.",
+            show_default=False,
+        ),
+    ] = None,
 ) -> None:
-    """Create the data folder from an example configuration."""
-    if example is None:
-        table = Table("Example", "Describes", box=None)
-        for name in storage.example_names():
-            table.add_row(name, storage.example_description(name))
-        _out.print(table)
-        _say("Start from one with: vacation-calendar init EXAMPLE")
-        return
+    """Create the data folder: a commented template for a country, or a copy of another folder."""
     with _reported():
-        written = storage.copy_example(example, ctx.obj, with_years=sample)
+        if (country is None) == (source is None) or (subdiv is not None and country is None):
+            msg = "give --country (and optionally --subdiv), or --from FOLDER"
+            raise ValueError(msg)
+        if source is not None:
+            written = storage.copy_folder(source, ctx.obj)
+        else:
+            base = CountryBase(country=(country or "").upper(), subdiv=subdiv and subdiv.upper())
+            written = [storage.write_template(ctx.obj, base, _today().year)]
     for path in written:
         _say(f"wrote {path}")
     _say("Edit config.toml to match your contract, then add leaves with: vacation-calendar add")

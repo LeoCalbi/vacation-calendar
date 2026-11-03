@@ -7,14 +7,11 @@ version.
 """
 
 import datetime as dt
-import itertools
 import os
 import re
 import shutil
 from collections.abc import Callable
 from decimal import Decimal
-from importlib.resources import files
-from importlib.resources.abc import Traversable
 from pathlib import Path
 
 import platformdirs
@@ -49,6 +46,34 @@ _YEAR_FILE = re.compile(r"(\d{4})\.toml")
 _HEADER = re.compile(r"\s*\[\[?[\w.\" -]+\]\]?\s*(#.*)?$")
 _CALENDAR_KEYS = ("closures", "schedule", "extra_workdays")
 _HOLIDAY_KEYS = ("base", "add", "remove")
+
+_TEMPLATE = """\
+# vacation-calendar settings. Replace the placeholders with the numbers of your contract;
+# every field is explained in https://github.com/LeoCalbi/vacation-calendar#the-data-folder
+schema = 1
+
+[holidays]
+base = {base}  # names in the country's language; add language = "en_US" for English
+
+# [[holidays.add]]  # a company holiday: a day off that uses no leave
+# name = "Company day"
+# rule = "FREQ=YEARLY;BYMONTH=12;BYMONTHDAY=24"
+
+# [[closures]]  # the office is closed and the hours come from a bucket
+# name = "Summer shutdown"
+# start = {year}-08-10
+# end = {year}-08-14
+# bucket = "vacation"
+
+[[schedule]]  # working hours per weekday; add an entry from the day they change
+valid_from = {year}-01-01
+hours = {{ mon = 8, tue = 8, wed = 8, thu = 8, fri = 8 }}
+
+[buckets.vacation]
+name = "Vacation"
+unit = "days"  # hours, days (working days) or calendar_days
+accrual = [{{ valid_from = {year}-01-01, yearly = 20 }}]  # placeholder; or monthly = 1.67
+"""
 
 
 class StorageError(ValueError):
@@ -242,48 +267,38 @@ class YearFile:
         array.insert(position, table)
 
 
-def example_names() -> list[str]:
-    """Return the names of the example data folders shipped with the package."""
-    return sorted(entry.name for entry in _examples().iterdir() if entry.is_dir())
+def write_template(folder: Path, base: CountryBase, year: int) -> Path:
+    """Write a commented `config.toml` for `base`'s holidays, its other values placeholders.
 
-
-def example_description(name: str) -> str:
-    """Return the first sentence of the comment that opens the example's `config.toml`."""
-    text = _examples().joinpath(name, CONFIG_FILE).read_text(encoding="utf-8")
-    lines = [line.removeprefix("# ") for line in text.splitlines()]
-    comment = " ".join(
-        itertools.takewhile(lambda line: not line.startswith(("#", "schema")), lines)
-    )
-    return comment.split(". ", 1)[0].removesuffix(".") + "."
-
-
-def copy_example(name: str, folder: Path, *, with_years: bool = False) -> list[Path]:
-    """Copy the example `name` into `folder`: its config, and its year files if `with_years`.
-
-    Refuses to overwrite a file that exists. Returns the files written.
+    The schedule and the accrual start on 1 January of `year`. Refuses to overwrite a config.
     """
-    if name not in example_names():
-        msg = f"no example {name!r}; examples: {', '.join(example_names())}"
-        raise ValueError(msg)
-    sources = [
-        entry
-        for entry in _examples().joinpath(name).iterdir()
-        if entry.name == CONFIG_FILE or (with_years and _YEAR_FILE.fullmatch(entry.name))
-    ]
-    targets = [folder / source.name for source in sources]
+    path = folder / CONFIG_FILE
+    if path.exists():
+        msg = f"{folder} already has {CONFIG_FILE}; not overwriting"
+        raise FileExistsError(msg)
+    fields = {"country": base.country, "subdiv": base.subdiv, "language": base.language}
+    inline = ", ".join(f'{key} = "{value}"' for key, value in fields.items() if value)
+    folder.mkdir(parents=True, exist_ok=True)
+    path.write_text(_TEMPLATE.format(base=f"{{ {inline} }}", year=year), encoding="utf-8")
+    return path
+
+
+def copy_folder(source: Path, folder: Path) -> list[Path]:
+    """Copy the config and year files of the data folder `source` into `folder`.
+
+    `source` must load and pass the checks. Refuses to overwrite a file. Returns the files written.
+    """
+    check_folder(source)
+    sources = [source / CONFIG_FILE, *(source / f"{year}.toml" for year in year_files(source))]
+    targets = [folder / path.name for path in sources]
     existing = [target.name for target in targets if target.exists()]
     if existing:
         msg = f"{folder} already has {', '.join(sorted(existing))}; not overwriting"
         raise FileExistsError(msg)
     folder.mkdir(parents=True, exist_ok=True)
-    for source, target in zip(sources, targets, strict=True):
-        with source.open("rb") as reader, target.open("wb") as writer:
-            shutil.copyfileobj(reader, writer)
+    for path, target in zip(sources, targets, strict=True):
+        shutil.copyfile(path, target)
     return sorted(targets)
-
-
-def _examples() -> Traversable:
-    return files("vacation_calendar").joinpath("examples")
 
 
 def _read(path: Path) -> TOMLDocument:

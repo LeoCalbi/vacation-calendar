@@ -1,6 +1,5 @@
 import datetime as dt
 from decimal import Decimal
-from importlib.resources import files
 from pathlib import Path
 
 import platformdirs
@@ -14,14 +13,15 @@ from vacation_calendar.storage import (
     StorageError,
     YearFile,
     check_folder,
-    copy_example,
+    copy_folder,
     data_dir,
-    example_description,
-    example_names,
     read_config,
     read_plans,
+    write_template,
     year_files,
 )
+
+EXAMPLES = Path(__file__).parents[1] / "examples"
 
 CONFIG = """\
 schema = 1
@@ -320,12 +320,12 @@ EXAMPLE_CLOSINGS = {
 
 
 def test_every_example_has_expected_closings() -> None:
-    assert example_names() == sorted(EXAMPLE_CLOSINGS)
+    assert sorted(path.name for path in EXAMPLES.iterdir()) == sorted(EXAMPLE_CLOSINGS)
 
 
 @pytest.mark.parametrize("name", sorted(EXAMPLE_CLOSINGS))
 def test_the_examples_load_and_build_a_ledger(name: str) -> None:
-    config, plans = check_folder(Path(str(files("vacation_calendar") / "examples" / name)))
+    config, plans = check_folder(EXAMPLES / name)
     ledger = build_ledger(config, plans, today=dt.date(2026, 11, 3))
     closings = {key: (rows[2].closing, rows[11].closing) for key, rows in ledger.rows.items()}
     assert closings == {
@@ -335,23 +335,33 @@ def test_the_examples_load_and_build_a_ledger(name: str) -> None:
     assert ledger.notices == ()
 
 
-def test_an_example_is_described_by_the_first_sentence_of_its_comment() -> None:
-    assert example_description("it-bo") == (
-        "A full-time employee in Bologna, Italy, under the CCNL Metalmeccanici Industria, the"
-        " national collective agreement of the metalworking industry."
-    )
-    assert example_description("cn") == "A full-time employee in China, working Monday to Friday."
+def test_the_template_loads_with_its_placeholders(tmp_path: Path) -> None:
+    path = write_template(tmp_path, CountryBase(country="ES", subdiv="MD", language="en_US"), 2027)
+    assert path == tmp_path / "config.toml"
+    config = read_config(tmp_path)
+    assert config.calendar.base == CountryBase(country="ES", subdiv="MD", language="en_US")
+    assert config.calendar.schedule[0].valid_from == dt.date(2027, 1, 1)
+    assert config.buckets["vacation"].unit is Unit.DAYS
+    assert config.buckets["vacation"].accrual[0].yearly == 20
+    assert config.calendar.closures == ()
+    write_template(tmp_path / "it", CountryBase(country="IT"), 2026)
+    assert 'base = { country = "IT" }  #' in (tmp_path / "it" / "config.toml").read_text("utf-8")
+    with pytest.raises(FileExistsError, match=r"already has config\.toml; not overwriting"):
+        write_template(tmp_path, CountryBase(country="IT"), 2026)
 
 
-def test_copy_example_writes_the_config_and_refuses_to_overwrite(tmp_path: Path) -> None:
+def test_copy_folder_copies_config_and_years_and_refuses_to_overwrite(tmp_path: Path) -> None:
     target = tmp_path / "plan"
-    assert copy_example("it-bo", target) == [target / "config.toml"]
+    assert copy_folder(EXAMPLES / "it-bo", target) == [target / "2026.toml", target / "config.toml"]
     assert read_config(target).buckets["rol"].name == "ROL + ex-festività"
-    with pytest.raises(FileExistsError, match=r"already has config\.toml"):
-        copy_example("it-bo", target, with_years=True)
-    with pytest.raises(ValueError, match="no example 'xx'; examples: "):
-        copy_example("xx", target)
-    assert copy_example("it-bo", tmp_path / "full", with_years=True) == [
-        tmp_path / "full" / "2026.toml",
-        tmp_path / "full" / "config.toml",
-    ]
+    (target / "2026.toml").unlink()
+    with pytest.raises(FileExistsError, match=r"already has config\.toml; not overwriting"):
+        copy_folder(EXAMPLES / "it-bo", target)
+    assert not (target / "2026.toml").exists()
+
+
+def test_copy_folder_refuses_a_folder_that_does_not_load(folder: Path, tmp_path: Path) -> None:
+    (folder / "2026.toml").write_text(YEAR.replace('bucket = "vacation"  # beach', ""), "utf-8")
+    with pytest.raises(StorageError, match=r"leaves #2\.bucket"):
+        copy_folder(folder, tmp_path / "plan")
+    assert not (tmp_path / "plan").exists()

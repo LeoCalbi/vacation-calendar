@@ -1,4 +1,5 @@
 import datetime as dt
+import shutil
 from pathlib import Path
 
 import pytest
@@ -6,11 +7,21 @@ from typer.testing import CliRunner
 
 from vacation_calendar import cli
 from vacation_calendar.report import CSV_FIELDS
-from vacation_calendar.storage import ENV_VAR, copy_example
+from vacation_calendar.storage import ENV_VAR
 
 NOW = dt.datetime(2026, 11, 3, 12, tzinfo=dt.UTC)
 
+EXAMPLES = Path(__file__).parents[1] / "examples"
+
 runner = CliRunner()
+
+
+def example(name: str, folder: Path, *, years: bool = False) -> None:
+    """Copy an example's config, and its year files if `years`, into `folder`."""
+    folder.mkdir(parents=True, exist_ok=True)
+    for path in (EXAMPLES / name).glob("*.toml"):
+        if years or path.name == "config.toml":
+            shutil.copyfile(path, folder / path.name)
 
 
 @pytest.fixture(autouse=True)
@@ -20,7 +31,7 @@ def fixed_now(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def folder(tmp_path: Path) -> Path:
-    copy_example("it-bo", tmp_path, with_years=True)
+    example("it-bo", tmp_path, years=True)
     return tmp_path
 
 
@@ -48,40 +59,75 @@ def year_text(folder: Path, year: int = 2026) -> str:
     return (folder / f"{year}.toml").read_text(encoding="utf-8")
 
 
-def test_init_lists_the_examples_without_an_argument(tmp_path: Path) -> None:
-    output = run(tmp_path, "init")
-    assert "it-bo" in output
-    assert "A full-time employee in China, working Monday to Friday." in output
-    assert not list(tmp_path.iterdir())
-
-
-def test_init_copies_an_example_and_never_overwrites(tmp_path: Path) -> None:
-    output = run(tmp_path, "init", "de-by")
-    assert f"wrote {tmp_path / 'config.toml'}" in output
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["config.toml"]
-    error = run(tmp_path, "init", "de-by", "--sample", code=1)
+def test_init_writes_a_template_for_a_country(tmp_path: Path) -> None:
+    output = run(tmp_path, "init", "--country", "de", "--subdiv", "by")
+    assert output.startswith(f"wrote {tmp_path / 'config.toml'}\n")
+    text = (tmp_path / "config.toml").read_text(encoding="utf-8")
+    assert 'base = { country = "DE", subdiv = "BY" }' in text
+    assert "valid_from = 2026-01-01" in text
+    assert "# [[closures]]" in text
+    output = run(tmp_path, "add", "2026-01-07", "2026-01-09")  # one bucket: no --bucket needed
+    assert "vacation at the end of 2026: 17.00 days" in output  # 20 - 3; 6 January is a holiday
+    error = run(tmp_path, "init", "--country", "IT", code=1)
     assert "already has config.toml; not overwriting" in error
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["config.toml"]
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        ([], "give --country (and optionally --subdiv), or --from FOLDER"),
+        (["--subdiv", "BO"], "give --country (and optionally --subdiv), or --from FOLDER"),
+        (["--from", ".", "--subdiv", "BO"], "give --country (and optionally --subdiv)"),
+        (["--country", "IT", "--from", "."], "give --country (and optionally --subdiv)"),
+        (["--country", "XX"], "country 'XX' is not supported by the holidays library"),
+        (["--country", "IT", "--subdiv", "ZZ"], "subdivision 'ZZ' is not supported for IT"),
+    ],
+)
+def test_init_needs_a_country_or_a_folder(tmp_path: Path, args: list[str], message: str) -> None:
+    assert message in run(tmp_path / "plan", "init", *args, code=1)
+    assert not (tmp_path / "plan").exists()
+
+
+def test_init_copies_a_data_folder_and_never_overwrites(tmp_path: Path) -> None:
+    target = tmp_path / "plan"
+    output = run(target, "init", "--from", str(EXAMPLES / "de-by"))
+    assert output.splitlines()[:2] == [
+        f"wrote {target / '2026.toml'}",
+        f"wrote {target / 'config.toml'}",
+    ]
+    assert sorted(path.name for path in target.iterdir()) == ["2026.toml", "config.toml"]
+    (target / "2026.toml").write_text("schema = 1\n", encoding="utf-8")
+    error = run(target, "init", "--from", str(EXAMPLES / "de-by"), code=1)
+    assert "already has 2026.toml, config.toml; not overwriting" in error
+    assert (target / "2026.toml").read_text(encoding="utf-8") == "schema = 1\n"
+
+
+def test_init_refuses_a_folder_that_does_not_load(tmp_path: Path) -> None:
+    (tmp_path / "broken").mkdir()
+    (tmp_path / "broken" / "config.toml").write_text("schema = 2\n", encoding="utf-8")
+    error = run(tmp_path / "plan", "init", "--from", str(tmp_path / "broken"), code=1)
+    assert "config.toml: schema 2" in error
+    assert not (tmp_path / "plan").exists()
 
 
 def test_the_data_folder_comes_from_the_environment(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(ENV_VAR, str(tmp_path))
-    result = runner.invoke(cli.app, ["init", "fr"])
+    result = runner.invoke(cli.app, ["init", "--country", "FR"])
     assert result.exit_code == 0, result.output
     assert (tmp_path / "config.toml").exists()
 
 
 def test_holidays_lists_holidays_closures_and_make_up_days(tmp_path: Path) -> None:
-    copy_example("it-bo", tmp_path / "it")
+    example("it-bo", tmp_path / "it")
     output = run(tmp_path / "it", "holidays", "2026")
     assert "2026-01-06 Tue holiday Epifania" in [
         " ".join(line.split()) for line in output.splitlines()
     ]
     assert "Epifania" in output
     assert "closure, uses vacation" in output
-    copy_example("cn", tmp_path / "cn")
+    example("cn", tmp_path / "cn")
     assert "make-up working day" in run(tmp_path / "cn", "holidays", "2026")
     assert "make-up working day" not in output
 
@@ -106,7 +152,7 @@ def test_add_writes_the_leave_and_shows_the_year_end_balance(folder: Path) -> No
 
 def test_add_needs_a_bucket_unless_there_is_only_one(folder: Path, tmp_path: Path) -> None:
     assert "give --bucket, one of: vacation, rol" in run(folder, "add", "2026-11-16", code=1)
-    copy_example("gb-eng", tmp_path / "gb")
+    example("gb-eng", tmp_path / "gb")
     output = run(tmp_path / "gb", "add", "2027-01-04")
     assert "added leave on 2027-01-04 (planned) from annual to" in output
     assert (tmp_path / "gb" / "2027.toml").exists()
@@ -189,7 +235,7 @@ def test_report_shows_two_decimals_days_and_only_used_columns(folder: Path) -> N
 
 
 def test_report_days_buckets_have_no_days_column(tmp_path: Path) -> None:
-    copy_example("de-by", tmp_path, with_years=True)
+    example("de-by", tmp_path, years=True)
     rows = table(run(tmp_path, "report", "2026-12"), "Urlaub")
     assert rows["Month"] == ["Month", "Open", "Accrued", "Taken", "Planned", "Closures", "Close"]
     assert rows["2026-12"][1:] == ["15.00", "0.00", "0.00", "0.00", "5.00", "10.00"]
@@ -231,7 +277,7 @@ def test_report_strict_fails_on_a_negative_balance(folder: Path) -> None:
 
 
 def test_report_without_year_files_starts_from_zero(tmp_path: Path) -> None:
-    copy_example("fr", tmp_path)
+    example("fr", tmp_path)
     output = run(tmp_path, "report", "2026-01")
     assert table(output, "Congés")["2026-01"][1:] == ["0.00", "2.08", "0.00", "0.00", "2.08"]
     assert "conges: no carry-over into 2026; starting from 0" in output
@@ -249,7 +295,7 @@ def test_export_csv(folder: Path) -> None:
 
 
 def test_export_csv_leaves_closing_days_empty_for_days_buckets(tmp_path: Path) -> None:
-    copy_example("de-by", tmp_path, with_years=True)
+    example("de-by", tmp_path, years=True)
     output = run(tmp_path, "export", "csv", "2026-12")
     assert output.splitlines()[1] == "urlaub,days,2026-12,15.00,0.00,0.00,0.00,5.00,0.00,10.00,,,"
 
@@ -268,7 +314,7 @@ def test_export_ics_to_a_file(folder: Path, tmp_path: Path) -> None:
 
 
 def test_export_needs_year_files(tmp_path: Path) -> None:
-    copy_example("fr", tmp_path)
+    example("fr", tmp_path)
     assert "there are no year files to export yet" in run(tmp_path, "export", "csv", code=1)
 
 

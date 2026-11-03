@@ -35,15 +35,14 @@ pip install git+https://github.com/LeoCalbi/vacation-calendar
 
 ## Quickstart
 
-Point the tool at a data folder (by default it uses your user data folder, such as `~/.local/share/vacation-calendar` on Linux), then start from one of the examples:
+Point the tool at a data folder (by default it uses your user data folder, such as `~/.local/share/vacation-calendar` on Linux), then create its configuration for your country and, optionally, region:
 
 ```bash
 export VACATION_CALENDAR_DIR="$PWD/my-time-off"
-vacation-calendar init
-vacation-calendar init it-bo --sample
+vacation-calendar init --country IT --subdiv BO
 ```
 
-`init` without an argument lists the examples; `--sample` also copies a year of sample leaves. Edit `config.toml` to match your contract, then look at the year:
+`init` writes a commented `config.toml`: the public holidays of Bologna, a Monday-to-Friday week of 8 hours, and one vacation bucket of 20 days a year, starting on 1 January of the current year. The schedule and the 20 days are placeholders: set your own, and add the buckets your contract has ([the data folder](#the-data-folder) explains every field, and [the examples](#examples) show complete ones). Then look at the year:
 
 ```bash
 vacation-calendar holidays 2026
@@ -53,14 +52,14 @@ vacation-calendar report 2026
 Plan a leave, record it as taken once it happened, and check a payslip:
 
 ```bash
-vacation-calendar add 2026-11-16 2026-11-18 --bucket vacation
-vacation-calendar add 2026-11-19 --bucket rol --hours 4
+vacation-calendar add 2026-11-16 2026-11-18
+vacation-calendar add 2026-11-19 --hours 4
 vacation-calendar take 2026-11-17
-vacation-calendar payslip 2026-10 --balance vacation=79.80 --balance rol=104.87
+vacation-calendar payslip 2026-10 --balance vacation=16.5
 vacation-calendar report 2026-09..2026-12
 ```
 
-`add` takes a day or a first and last day; without `--hours` each working day is taken in full. It files the leave under the year it starts in, checks every year file before it writes, and prints the bucket's balance at the end of that year. `--bucket` can be left out when there is only one bucket. `payslip` prints, for each bucket, the payslip's balance next to the computed one; with `--override` the payslip's balances replace the computed ones from that month on.
+`add` takes a day or a first and last day; without `--hours` each working day is taken in full. It files the leave under the year it starts in, checks every year file before it writes, and prints the bucket's balance at the end of that year. With more than one bucket, name it with `--bucket`. `payslip` prints, for each bucket, the payslip's balance next to the computed one; with `--override` the payslip's balances replace the computed ones from that month on.
 
 Export the balances or the leaves:
 
@@ -167,18 +166,28 @@ balances = { vacation = 61.2, rol = 40.1 }  # the closing balances the payslip p
 
 ## Examples
 
-Each example is a `config.toml` with a sample `2026.toml`; `vacation-calendar init` copies one. Their comments cite the law each number comes from, or say that it is illustrative. Check your own contract: these are starting points, not legal advice.
+The [`examples`](examples) folder holds a complete data folder for each of eight countries: a `config.toml` and a sample `2026.toml`. Their comments cite the law each number comes from, or say that it is illustrative. Check your own contract: these are starting points, not legal advice.
 
 | Example | Shows |
 | - | - |
-| `it-bo` (Bologna, Italy) | hours buckets with monthly accrual (CCNL Metalmeccanici), a summer closure |
-| `de-by` (Bavaria, Germany) | a days bucket granted each January, a Christmas closure |
-| `fr` (France) | monthly accrual in days from a June reference period, RTT days |
-| `us` (United States) | PTO accrued monthly, a floating holiday, a company holiday by rule, federal holidays removed |
-| `gb-eng` (England) | a leave year that starts in April, bank holidays with substitute days |
-| `es-md` (Madrid, Spain) | regional holidays, a yearly grant used in full |
-| `jp` (Japan) | grants that grow with seniority, year-end company holidays |
-| `cn` (China) | make-up working days on weekends, a higher grant from a later year |
+| [`it-bo`](examples/it-bo) (Bologna, Italy) | hours buckets with monthly accrual (CCNL Metalmeccanici), a summer closure |
+| [`de-by`](examples/de-by) (Bavaria, Germany) | a days bucket granted each January, a Christmas closure |
+| [`fr`](examples/fr) (France) | monthly accrual in days from a June reference period, RTT days |
+| [`us`](examples/us) (United States) | PTO accrued monthly, a floating holiday, a company holiday by rule, federal holidays removed |
+| [`gb-eng`](examples/gb-eng) (England) | a leave year that starts in April, bank holidays with substitute days |
+| [`es-md`](examples/es-md) (Madrid, Spain) | regional holidays, a yearly grant used in full |
+| [`jp`](examples/jp) (Japan) | grants that grow with seniority, year-end company holidays |
+| [`cn`](examples/cn) (China) | make-up working days on weekends, a higher grant from a later year |
+
+To start from one, copy it into a data folder of your own with `init --from`:
+
+```bash
+git clone --depth 1 https://github.com/LeoCalbi/vacation-calendar
+vacation-calendar --data-dir de-time-off init --from vacation-calendar/examples/de-by
+vacation-calendar --data-dir de-time-off report 2026-12
+```
+
+`init --from` copies the config and the year files of any data folder, after checking that they load; it never overwrites a file.
 
 ## Use as a library
 
