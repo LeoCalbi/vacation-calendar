@@ -19,7 +19,13 @@ classifiers = [
   "Topic :: Office/Business :: Scheduling",
   "Typing :: Typed",
 ]
-dependencies = ["holidays>=0.108", "pydantic>=2.14", "python-dateutil>=2.9"]
+dependencies = [
+  "holidays>=0.108",
+  "platformdirs>=4.14",
+  "pydantic>=2.14",
+  "python-dateutil>=2.9",
+  "tomlkit>=0.15",
+]
 description = "Plan work time off across years: public and company holidays, accrual, and leave balances."
 keywords = ["holiday", "leave", "planner", "pto", "vacation"]
 license = "MIT"
@@ -85,8 +91,10 @@ py315 = { features = ["py315", "test"] }
 
 [tool.pixi.dependencies]
 holidays = ">=0.108,<0.109"
+platformdirs = ">=4.14.3,<5"
 pydantic = ">=2.14.2,<3"
 python-dateutil = ">=2.9.0.post0,<3"
+tomlkit = ">=0.15.2,<0.16"
 
 [tool.ruff]
 line-length = 100

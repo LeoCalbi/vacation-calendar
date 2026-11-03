@@ -1,0 +1,48 @@
+schema = 1
+
+[carry_over]  # balances on 1 January, as the December 2025 payslip prints them
+vacation = 42.5
+rol = 30.17
+
+[[leaves]]  # bridge between New Year's Day and the weekend
+date = 2026-01-02
+bucket = "vacation"
+state = "taken"
+
+[[leaves]]
+date = 2026-01-05
+bucket = "vacation"
+state = "taken"
+
+[[leaves]]  # half a day
+date = 2026-03-06
+hours = 4
+bucket = "rol"
+state = "taken"
+
+[[leaves]]  # bridge before Republic Day
+date = 2026-06-01
+bucket = "rol"
+state = "taken"
+
+[[leaves]]  # the week after the summer closure
+start = 2026-08-17
+end = 2026-08-21
+bucket = "vacation"
+state = "taken"
+
+[[leaves]]  # bridge before the Immaculate Conception
+date = 2026-12-07
+bucket = "rol"
+state = "planned"
+
+[[leaves]]  # Christmas into the new year, filed under the year it starts in
+start = 2026-12-28
+end = 2027-01-05
+bucket = "vacation"
+state = "planned"
+
+[[payslips]]
+month = "2026-09"
+mode = "check"
+balances = { vacation = 66.47, rol = 96.2 }

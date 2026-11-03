@@ -1,0 +1,29 @@
+# A full-time employee in Bologna, Italy, under the CCNL Metalmeccanici Industria, the national
+# collective agreement of the metalworking industry. Its yearly amounts for a 40-hour week, in a
+# company of up to 200 employees: 160 h of vacation (ferie, 4 weeks) and 104 h of permits
+# (72 h ROL + 32 h ex-festività). Larger companies grant more ROL, so check your own payslip.
+# Source: summaries of the contract, such as
+# https://leggeinchiaro.it/ccnl-metalmeccanici-industria-ferie-permessi-rol/
+schema = 1
+
+[holidays]
+base = { country = "IT", subdiv = "BO" }  # Italian names; language = "en_US" for English ones
+
+[[closures]]  # illustrative: the office closes the week before Ferragosto, using vacation hours
+name = "Chiusura estiva"
+rule = "FREQ=YEARLY;BYMONTH=8;BYMONTHDAY=10,11,12,13,14"
+bucket = "vacation"
+
+[[schedule]]
+valid_from = 2025-01-01
+hours = { mon = 8, tue = 8, wed = 8, thu = 8, fri = 8 }
+
+[buckets.vacation]
+name = "Ferie"
+unit = "hours"
+accrual = [{ valid_from = 2025-01-01, monthly = 13.33 }]  # 160 h / 12, so 159.96 h a year
+
+[buckets.rol]
+name = "ROL + ex-festività"
+unit = "hours"
+accrual = [{ valid_from = 2025-01-01, monthly = 8.67 }]  # 104 h / 12, so 104.04 h a year
