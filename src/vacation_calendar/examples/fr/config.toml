@@ -1,0 +1,25 @@
+# A full-time employee in France, working Monday to Friday.
+# The Code du travail (L3141-3) grants 2.5 jours ouvrables (Monday to Saturday) per month of
+# work, up to 30 a year: https://www.legifrance.gouv.fr/codes/id/LEGIARTI000006902642/
+# An employer may count in jours ouvrés (Monday to Friday) when the result is at least as
+# favourable (https://www.service-public.gouv.fr/particuliers/vosdroits/F2258); on a five-day
+# week that is usually 25 days, 2.08 a month here (24.96 a year: a payslip override corrects
+# the rounding). The reference period starts on 1 June. The RTT days are illustrative.
+schema = 1
+
+[holidays]
+base = { country = "FR" }  # French names; language = "en_US" for English ones
+
+[[schedule]]
+valid_from = 2025-01-01
+hours = { mon = 7, tue = 7, wed = 7, thu = 7, fri = 7 }
+
+[buckets.conges]
+name = "Congés payés"
+unit = "days"
+accrual = [{ valid_from = 2025-06-01, monthly = 2.08 }]
+
+[buckets.rtt]
+name = "RTT"
+unit = "days"
+accrual = [{ valid_from = 2025-01-01, yearly = 10 }]

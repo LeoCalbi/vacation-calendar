@@ -1,0 +1,31 @@
+schema = 1
+
+[carry_over]
+urlaub = 3
+
+[[leaves]]
+date = 2026-01-02
+bucket = "urlaub"
+state = "taken"
+
+[[leaves]]  # bridge after Ascension Day
+date = 2026-05-15
+bucket = "urlaub"
+state = "taken"
+
+[[leaves]]  # bridge after Corpus Christi
+date = 2026-06-05
+bucket = "urlaub"
+state = "taken"
+
+[[leaves]]
+start = 2026-08-03
+end = 2026-08-14
+bucket = "urlaub"
+state = "taken"
+
+[[leaves]]
+start = 2026-11-16
+end = 2026-11-20
+bucket = "urlaub"
+state = "planned"

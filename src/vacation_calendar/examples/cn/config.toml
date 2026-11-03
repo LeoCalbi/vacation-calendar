@@ -1,0 +1,23 @@
+# A full-time employee in China, working Monday to Friday.
+# The Regulations on Paid Annual Leave for Employees (art. 3) grant 5 days a year after 1 to
+# under 10 years of cumulative work, 10 days from 10 years and 15 from 20; public holidays and
+# rest days inside the leave do not count: https://www.gov.cn/zhengce/2007-12/16/content_2602498.htm
+# Here the employee reaches 10 years in 2026 and the higher grant starts the next year
+# (illustrative). The weekends that become working days around public holidays come from the
+# holidays library.
+schema = 1
+
+[holidays]
+base = { country = "CN" }  # Chinese names; language = "en_US" for English ones
+
+[[schedule]]
+valid_from = 2025-01-01
+hours = { mon = 8, tue = 8, wed = 8, thu = 8, fri = 8 }
+
+[buckets.annual]
+name = "Annual leave"
+unit = "days"
+accrual = [
+  { valid_from = 2025-01-01, yearly = 5 },
+  { valid_from = 2027-01-01, yearly = 10 },
+]

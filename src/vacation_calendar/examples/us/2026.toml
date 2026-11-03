@@ -1,0 +1,33 @@
+schema = 1
+
+[carry_over]
+pto = 3
+floating = 0
+
+[[leaves]]  # before the observed Independence Day
+date = 2026-07-02
+bucket = "pto"
+state = "taken"
+
+[[leaves]]  # Columbus Day is a working day here, so this uses 2 days
+start = 2026-10-12
+end = 2026-10-13
+bucket = "pto"
+state = "taken"
+
+[[leaves]]  # Thanksgiving week; Thursday and Friday are holidays
+start = 2026-11-23
+end = 2026-11-27
+bucket = "pto"
+state = "planned"
+
+[[leaves]]
+date = 2026-12-24
+bucket = "floating"
+state = "planned"
+
+[[leaves]]
+start = 2026-12-28
+end = 2026-12-31
+bucket = "pto"
+state = "planned"

@@ -1,0 +1,22 @@
+schema = 1
+
+[carry_over]
+nenkyu = 9
+
+[[leaves]]  # Golden Week
+start = 2026-04-30
+end = 2026-05-01
+bucket = "nenkyu"
+state = "taken"
+
+[[leaves]]  # Obon, after Mountain Day
+start = 2026-08-12
+end = 2026-08-14
+bucket = "nenkyu"
+state = "taken"
+
+[[leaves]]  # the 29th and 30th are company holidays, so this uses 1 day
+start = 2026-12-28
+end = 2026-12-30
+bucket = "nenkyu"
+state = "planned"

@@ -1,0 +1,32 @@
+schema = 1
+
+[carry_over]
+conges = 12.5
+rtt = 2
+
+[[leaves]]  # bridge after Ascension Day
+date = 2026-05-15
+bucket = "rtt"
+state = "taken"
+
+[[leaves]]  # bridge before the National Day
+date = 2026-07-13
+bucket = "conges"
+state = "taken"
+
+[[leaves]]
+start = 2026-08-03
+end = 2026-08-21
+bucket = "conges"
+state = "taken"
+
+[[leaves]]  # bridge before Armistice Day
+date = 2026-11-10
+bucket = "rtt"
+state = "planned"
+
+[[leaves]]
+start = 2026-12-21
+end = 2026-12-31
+bucket = "conges"
+state = "planned"

@@ -1,0 +1,20 @@
+# A full-time employee in England, working Monday to Friday.
+# Workers get 5.6 weeks of paid holiday a year, at most 28 days (Working Time Regulations 1998,
+# regulations 13 and 13A): https://www.gov.uk/holiday-entitlement-rights
+# An employer can include the bank holidays in it; here the 8 bank holidays are part of the 28
+# days, so the bucket holds the other 20. The leave year starting on 1 April is illustrative:
+# without an agreement it starts on the anniversary of the start of employment. Leave not taken
+# in its leave year is normally lost; this library does not apply that rule yet.
+schema = 1
+
+[holidays]
+base = { country = "GB", subdiv = "ENG" }  # bank holidays, with substitute days
+
+[[schedule]]
+valid_from = 2025-01-01
+hours = { mon = 7.5, tue = 7.5, wed = 7.5, thu = 7.5, fri = 7.5 }
+
+[buckets.annual]
+name = "Annual leave"
+unit = "days"
+accrual = [{ valid_from = 2025-04-01, yearly = 20 }]  # granted each 1 April

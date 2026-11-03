@@ -1,0 +1,24 @@
+# A full-time employee in Bavaria, Germany, working Monday to Friday.
+# The Bundesurlaubsgesetz (§3) grants at least 24 Werktage a year, counting Monday to Saturday,
+# which is 20 days on a five-day week: https://www.gesetze-im-internet.de/burlg/__3.html
+# Contracts usually give more; the 30 days here are illustrative. Leave not taken in its year
+# carries over only for urgent reasons and must be taken by the end of March (§7(3)); this
+# library does not apply that rule yet.
+schema = 1
+
+[holidays]
+base = { country = "DE", subdiv = "BY" }  # German names; language = "en_US" for English ones
+
+[[closures]]  # illustrative: the office closes between Christmas and New Year, using leave
+name = "Betriebsferien"
+rule = "FREQ=YEARLY;BYMONTH=12;BYMONTHDAY=24,27,28,29,30,31"
+bucket = "urlaub"
+
+[[schedule]]
+valid_from = 2025-01-01
+hours = { mon = 8, tue = 8, wed = 8, thu = 8, fri = 8 }
+
+[buckets.urlaub]
+name = "Urlaub"
+unit = "days"
+accrual = [{ valid_from = 2025-01-01, yearly = 30 }]  # granted each 1 January

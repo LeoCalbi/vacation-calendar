@@ -1,0 +1,18 @@
+# A full-time employee in Madrid, Spain, working Monday to Friday.
+# The Estatuto de los Trabajadores (art. 38) grants at least 30 natural days of paid leave a
+# year: https://www.boe.es/buscar/act.php?id=BOE-A-2015-11430#a38
+# Collective agreements commonly count them as 22 working days instead, as this example does
+# (common practice, not stated in the law).
+schema = 1
+
+[holidays]
+base = { country = "ES", subdiv = "MD" }  # Spanish names; language = "en_US" for English ones
+
+[[schedule]]
+valid_from = 2025-01-01
+hours = { mon = 8, tue = 8, wed = 8, thu = 8, fri = 8 }
+
+[buckets.vacaciones]
+name = "Vacaciones"
+unit = "days"
+accrual = [{ valid_from = 2025-01-01, yearly = 22 }]  # granted each 1 January

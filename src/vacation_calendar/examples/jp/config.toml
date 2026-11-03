@@ -1,0 +1,36 @@
+# A full-time employee in Japan, hired on 1 April 2024, working Monday to Friday.
+# The Labor Standards Act (art. 39) grants 10 working days after 6 months of continuous service
+# with at least 80% attendance, then 11, 12, 14, 16, 18 and 20 days on each later anniversary
+# of that date: https://www.japaneselawtranslation.go.jp/en/laws/view/3567
+# Here the grants fall on 1 October. Days not taken lapse after 2 years, and the employer must
+# have the employee take at least 5 days a year; this library does not apply these rules yet.
+# The year-end company holidays are illustrative.
+schema = 1
+
+[holidays]
+base = { country = "JP" }  # Japanese names; language = "en_US" for English ones
+
+[[holidays.add]]
+name = "Year-end holidays"
+rule = "FREQ=YEARLY;BYMONTH=12;BYMONTHDAY=29,30,31"
+
+[[holidays.add]]
+name = "New Year holidays"
+rule = "FREQ=YEARLY;BYMONTH=1;BYMONTHDAY=2,3"
+
+[[schedule]]
+valid_from = 2024-04-01
+hours = { mon = 8, tue = 8, wed = 8, thu = 8, fri = 8 }
+
+[buckets.nenkyu]
+name = "Annual paid leave"
+unit = "days"
+accrual = [
+  { valid_from = 2024-10-01, yearly = 10 },
+  { valid_from = 2025-10-01, yearly = 11 },
+  { valid_from = 2026-10-01, yearly = 12 },
+  { valid_from = 2027-10-01, yearly = 14 },
+  { valid_from = 2028-10-01, yearly = 16 },
+  { valid_from = 2029-10-01, yearly = 18 },
+  { valid_from = 2030-10-01, yearly = 20 },
+]

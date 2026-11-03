@@ -1,0 +1,22 @@
+schema = 1
+
+[carry_over]
+vacaciones = 0
+
+[[leaves]]  # the start of Holy Week
+start = 2026-03-30
+end = 2026-04-01
+bucket = "vacaciones"
+state = "taken"
+
+[[leaves]]
+start = 2026-08-03
+end = 2026-08-21
+bucket = "vacaciones"
+state = "taken"
+
+[[leaves]]
+start = 2026-12-28
+end = 2026-12-31
+bucket = "vacaciones"
+state = "planned"

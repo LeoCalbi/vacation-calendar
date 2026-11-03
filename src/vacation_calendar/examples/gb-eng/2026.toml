@@ -1,0 +1,34 @@
+schema = 1
+
+[carry_over]  # what is left of the leave year that ends on 31 March
+annual = 6
+
+[[leaves]]  # half term
+start = 2026-02-16
+end = 2026-02-20
+bucket = "annual"
+state = "taken"
+
+[[leaves]]  # the week after Easter
+start = 2026-04-07
+end = 2026-04-10
+bucket = "annual"
+state = "taken"
+
+[[leaves]]  # after the Spring Bank Holiday
+start = 2026-05-26
+end = 2026-05-29
+bucket = "annual"
+state = "taken"
+
+[[leaves]]
+start = 2026-08-24
+end = 2026-08-28
+bucket = "annual"
+state = "taken"
+
+[[leaves]]  # 28 December is the substitute day for Boxing Day, so this uses 3 days
+start = 2026-12-28
+end = 2026-12-31
+bucket = "annual"
+state = "planned"

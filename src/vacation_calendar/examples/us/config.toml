@@ -1,0 +1,33 @@
+# A full-time employee in the United States, working Monday to Friday.
+# No federal law requires paid vacation; it is a matter of agreement between employer and
+# employee: https://www.dol.gov/general/topic/workhours/vacation_leave
+# Everything below is illustrative: 15 days of PTO accrued per pay period (approximated as
+# 1.25 a month), one floating holiday a year, and a company holiday after Thanksgiving.
+schema = 1
+
+[holidays]
+base = { country = "US" }  # federal holidays
+
+[[holidays.add]]
+name = "Day after Thanksgiving"
+rule = "FREQ=YEARLY;BYMONTH=11;BYDAY=FR;BYMONTHDAY=23,24,25,26,27,28,29"
+
+[[holidays.remove]]  # many private employers work on these federal holidays
+name = "Columbus Day"
+
+[[holidays.remove]]
+name = "Veterans Day"
+
+[[schedule]]
+valid_from = 2025-01-01
+hours = { mon = 8, tue = 8, wed = 8, thu = 8, fri = 8 }
+
+[buckets.pto]
+name = "Paid time off"
+unit = "days"
+accrual = [{ valid_from = 2025-01-01, monthly = 1.25 }]
+
+[buckets.floating]
+name = "Floating holiday"
+unit = "days"
+accrual = [{ valid_from = 2025-01-01, yearly = 1 }]

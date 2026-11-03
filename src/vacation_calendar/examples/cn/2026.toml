@@ -1,0 +1,10 @@
+schema = 1
+
+[carry_over]
+annual = 0
+
+[[leaves]]  # after the Spring Festival; Saturday 28 February is a make-up working day
+start = 2026-02-24
+end = 2026-02-28
+bucket = "annual"
+state = "taken"

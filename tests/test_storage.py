@@ -297,15 +297,41 @@ def test_check_folder_checks_an_edit_before_it_is_saved(folder: Path) -> None:
     assert [plan.year for plan in plans] == [2026]
 
 
-def test_the_examples_load_and_build_a_ledger() -> None:
-    assert "it-bo" in example_names()
-    for name in example_names():
-        folder = Path(str(files("vacation_calendar") / "examples" / name))
-        config, plans = check_folder(folder)
-        ledger = build_ledger(config, plans, today=dt.date(2026, 11, 3))
-        assert set(ledger.rows) == set(config.buckets), name
-        mismatches = [notice for notice in ledger.notices if notice.kind == "payslip_mismatch"]
-        assert not mismatches, name
+# Each example's closing balances on 31 March and 31 December 2026, counted by hand from its files.
+EXAMPLE_CLOSINGS = {
+    # 5 granted; Tuesday to Saturday, a make-up working day, uses 5
+    "cn": {"annual": ("0", "0")},
+    # 3 + 30 - 18 leave - 5 closure days (24, 28-31 December)
+    "de-by": {"urlaub": ("32", "10")},
+    # 22 granted, 3 + 15 + 4 used
+    "es-md": {"vacaciones": ("20", "0")},
+    # 12.5 + 12 x 2.08 - 24; 2 + 10 - 2
+    "fr": {"conges": ("18.74", "13.46"), "rtt": ("12", "10")},
+    # 6 - 5, + 20 on 1 April, - 4 - 4 - 5 - 3
+    "gb-eng": {"annual": ("1", "5")},
+    # 42.5 + 12 x 13.33 - 88 leave - 40 closure; 30.17 + 12 x 8.67 - 20
+    "it-bo": {"vacation": ("66.49", "74.46"), "rol": ("52.18", "114.21")},
+    # 9 - 2 - 3, + 12 on 1 October, - 1 (29, 30 December are company holidays)
+    "jp": {"nenkyu": ("9", "15")},
+    # 3 + 12 x 1.25 - 1 - 2 - 3 (26, 27 November are holidays) - 4; 1 - 1
+    "us": {"pto": ("6.75", "8"), "floating": ("1", "0")},
+}
+
+
+def test_every_example_has_expected_closings() -> None:
+    assert example_names() == sorted(EXAMPLE_CLOSINGS)
+
+
+@pytest.mark.parametrize("name", sorted(EXAMPLE_CLOSINGS))
+def test_the_examples_load_and_build_a_ledger(name: str) -> None:
+    config, plans = check_folder(Path(str(files("vacation_calendar") / "examples" / name)))
+    ledger = build_ledger(config, plans, today=dt.date(2026, 11, 3))
+    closings = {key: (rows[2].closing, rows[11].closing) for key, rows in ledger.rows.items()}
+    assert closings == {
+        key: (Decimal(march), Decimal(december))
+        for key, (march, december) in EXAMPLE_CLOSINGS[name].items()
+    }
+    assert ledger.notices == ()
 
 
 def test_copy_example_writes_the_config_and_refuses_to_overwrite(tmp_path: Path) -> None:
