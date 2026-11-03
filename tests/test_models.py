@@ -14,7 +14,7 @@ from vacation_calendar.models import (
     PlanError,
     Unit,
     YearPlan,
-    check_year,
+    check_plans,
 )
 from vacation_calendar.schedule import ScheduleEntry, WeekHours
 from vacation_calendar.work_calendar import CalendarConfig, Closure, WorkCalendar
@@ -36,13 +36,17 @@ BUCKETS = {
 }
 
 
-def check(**fields: object) -> None:
-    check_year(YearPlan.model_validate({"year": 2026, **fields}), BUCKETS, WorkCalendar(CALENDAR))
+def plan(year: int = 2026, **fields: object) -> YearPlan:
+    return YearPlan.model_validate({"year": year, **fields})
 
 
-def problems(**fields: object) -> tuple[str, ...]:
+def check(*plans: YearPlan) -> None:
+    check_plans(plans, BUCKETS, WorkCalendar(CALENDAR))
+
+
+def problems(*plans: YearPlan) -> tuple[str, ...]:
     with pytest.raises(PlanError) as error:
-        check(**fields)
+        check(*plans)
     return error.value.problems
 
 
@@ -174,8 +178,12 @@ def test_negative_balances_are_allowed() -> None:
     ("fields", "message"),
     [
         (
-            {"leaves": [{"start": "2026-12-28", "end": "2027-01-04", "bucket": "vacation"}]},
-            "leave 2026-12-28..2027-01-04 is not inside 2026; split it",
+            {"leaves": [{"start": "2025-12-29", "end": "2026-01-02", "bucket": "vacation"}]},
+            "leave 2025-12-29..2026-01-02 starts outside 2026; file it under 2025",
+        ),
+        (
+            {"leaves": [{"start": "2026-12-28", "end": "2028-01-04", "bucket": "vacation"}]},
+            "leave 2026-12-28..2028-01-04 ends after 2027",
         ),
         (
             {"payslips": [{"month": "2025-12", "mode": "check", "balances": {"rol": 1}}]},
@@ -199,50 +207,74 @@ def test_invalid_year_plan_is_rejected(fields: dict[str, object], message: str) 
 
 def test_a_plan_that_fits_passes() -> None:
     check(
-        carry_over={"vacation": 25.5, "rol": 20.3},
-        leaves=[
-            # Monday to Friday around Easter Monday: the holiday uses no leave
-            {"start": "2026-04-06", "end": "2026-04-10", "bucket": "vacation", "state": "taken"},
-            # half a day from each of two buckets on the same day
-            {"date": "2026-03-04", "hours": 4, "bucket": "vacation"},
-            {"date": "2026-03-04", "hours": 4, "bucket": "rol"},
-            # four hours a day from Friday to Monday: the weekend uses no leave
-            {"start": "2026-03-13", "end": "2026-03-16", "hours": 4, "bucket": "rol"},
-            {"start": "2026-08-01", "end": "2026-08-30", "bucket": "ferias"},
-        ],
-        payslips=[{"month": "2026-09", "mode": "override", "balances": {"vacation": 61.2}}],
+        plan(
+            carry_over={"vacation": 25.5, "rol": 20.3},
+            leaves=[
+                # Monday to Friday around Easter Monday: the holiday uses no leave
+                {
+                    "start": "2026-04-06",
+                    "end": "2026-04-10",
+                    "bucket": "vacation",
+                    "state": "taken",
+                },
+                # half a day from each of two buckets on the same day
+                {"date": "2026-03-04", "hours": 4, "bucket": "vacation"},
+                {"date": "2026-03-04", "hours": 4, "bucket": "rol"},
+                # four hours a day from Friday to Monday: the weekend uses no leave
+                {"start": "2026-03-13", "end": "2026-03-16", "hours": 4, "bucket": "rol"},
+                {"start": "2026-08-01", "end": "2026-08-30", "bucket": "ferias"},
+            ],
+            payslips=[{"month": "2026-09", "mode": "override", "balances": {"vacation": 61.2}}],
+        )
     )
+
+
+def test_a_leave_across_new_year_clashes_with_the_next_years_plan() -> None:
+    christmas = {"start": "2026-12-28", "end": "2027-01-08", "bucket": "vacation"}
+    epiphany_bridge = {"date": "2027-01-07", "hours": 4, "bucket": "rol"}
+    check(plan(leaves=[christmas]), plan(2027))
+    assert problems(plan(leaves=[christmas]), plan(2027, leaves=[epiphany_bridge])) == (
+        "2027-01-07: leaves total 12 h, but the schedule has 8 h",
+    )
+
+
+def test_two_plans_for_one_year_are_an_error() -> None:
+    assert problems(plan(), plan()) == ("two plans for 2026",)
 
 
 def test_every_unknown_bucket_is_reported_together() -> None:
     assert problems(
-        carry_over={"holiday": 1},
-        leaves=[{"date": "2026-03-04", "bucket": "pto"}],
-        payslips=[{"month": "2026-09", "mode": "check", "balances": {"rol": 1, "perm": 2}}],
+        plan(
+            carry_over={"holiday": 1},
+            leaves=[{"date": "2026-03-04", "bucket": "pto"}],
+            payslips=[{"month": "2026-09", "mode": "check", "balances": {"rol": 1, "perm": 2}}],
+        )
     ) == (
-        "carry_over: unknown bucket 'holiday'; configured: ferias, rol, vacation",
+        "carry_over 2026: unknown bucket 'holiday'; configured: ferias, rol, vacation",
         "leave on 2026-03-04: unknown bucket 'pto'; configured: ferias, rol, vacation",
         "payslip 2026-09: unknown bucket 'perm'; configured: ferias, rol, vacation",
     )
 
 
 def test_hours_above_a_short_friday_are_an_error() -> None:
-    assert problems(leaves=[{"date": "2026-03-06", "hours": 6, "bucket": "rol"}]) == (
+    assert problems(plan(leaves=[{"date": "2026-03-06", "hours": 6, "bucket": "rol"}])) == (
         "2026-03-06: leaves total 6 h, but the schedule has 4 h",
     )
 
 
 def test_a_full_day_and_another_leave_on_the_same_day_are_an_error() -> None:
     assert problems(
-        leaves=[
-            {"start": "2026-03-02", "end": "2026-03-06", "bucket": "vacation"},
-            {"date": "2026-03-05", "hours": 2, "bucket": "rol"},
-        ]
+        plan(
+            leaves=[
+                {"start": "2026-03-02", "end": "2026-03-06", "bucket": "vacation"},
+                {"date": "2026-03-05", "hours": 2, "bucket": "rol"},
+            ]
+        )
     ) == ("2026-03-05: leaves total 10 h, but the schedule has 8 h",)
 
 
 def test_hours_on_a_calendar_days_bucket_are_an_error() -> None:
-    assert problems(leaves=[{"date": "2026-03-04", "hours": 4, "bucket": "ferias"}]) == (
+    assert problems(plan(leaves=[{"date": "2026-03-04", "hours": 4, "bucket": "ferias"}])) == (
         "leave on 2026-03-04: bucket 'ferias' counts whole calendar days",
     )
 
@@ -251,8 +283,6 @@ def test_leave_before_the_work_schedule_is_an_error() -> None:
     late_start = CALENDAR.model_copy(
         update={"schedule": (ScheduleEntry(valid_from=dt.date(2026, 3, 1), hours=SHORT_FRIDAY),)}
     )
-    plan = YearPlan.model_validate(
-        {"year": 2026, "leaves": [{"date": "2026-02-27", "bucket": "rol"}]}
-    )
+    plans = [plan(leaves=[{"date": "2026-02-27", "bucket": "rol"}])]
     with pytest.raises(PlanError, match="leave on 2026-02-27: no work schedule before 2026-03-01"):
-        check_year(plan, BUCKETS, WorkCalendar(late_start))
+        check_plans(plans, BUCKETS, WorkCalendar(late_start))

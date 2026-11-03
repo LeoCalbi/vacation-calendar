@@ -3,7 +3,7 @@
 import datetime as dt
 import re
 from collections import defaultdict
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from decimal import Decimal
 from enum import StrEnum
 from functools import cached_property
@@ -192,7 +192,7 @@ class YearPlan(Frozen):
     """One year of leave data: an optional carry-over, the leaves and the payslip checkpoints.
 
     `carry_over` is each bucket's balance on 1 January; a bucket left out is computed from the
-    previous year.
+    previous year. A leave belongs to the year it starts in and may end in the next one.
     """
 
     year: int
@@ -203,8 +203,11 @@ class YearPlan(Frozen):
     @model_validator(mode="after")
     def _check_inside_year(self) -> Self:
         for leave in self.leaves:
-            if leave.first.year != self.year or leave.last.year != self.year:
-                msg = f"{leave} is not inside {self.year}; split it at the end of the year"
+            if leave.first.year != self.year:
+                msg = f"{leave} starts outside {self.year}; file it under {leave.first.year}"
+                raise ValueError(msg)
+            if leave.last.year > self.year + 1:
+                msg = f"{leave} ends after {self.year + 1}"
                 raise ValueError(msg)
         months = [payslip.month for payslip in self.payslips]
         for month in months:
@@ -218,7 +221,7 @@ class YearPlan(Frozen):
 
 
 class PlanError(ValueError):
-    """A year plan that does not fit the configuration; `problems` lists every reason."""
+    """Year plans that do not fit the configuration; `problems` lists every reason."""
 
     def __init__(self, problems: list[str]) -> None:
         """Create the error from one message per problem."""
@@ -226,19 +229,26 @@ class PlanError(ValueError):
         super().__init__("\n".join(problems))
 
 
-def check_year(plan: YearPlan, buckets: Mapping[str, Bucket], calendar: WorkCalendar) -> None:
-    """Raise `PlanError` with every problem in `plan`, or return if it fits the configuration.
+def check_plans(
+    plans: Sequence[YearPlan], buckets: Mapping[str, Bucket], calendar: WorkCalendar
+) -> None:
+    """Raise `PlanError` with every problem in `plans`, or return if they fit the configuration.
 
-    Problems: a bucket that is not configured, hours on a bucket that counts calendar days, a
-    leave outside the work schedule, and leaves on one day that total more than its hours.
+    The plans are checked together, because a leave filed under one year can end in the next.
+    Problems: two plans for one year, a bucket that is not configured, hours on a bucket that
+    counts calendar days, a leave outside the work schedule, and leaves on one day that total
+    more than its hours.
     """
-    problems = [
+    years = [plan.year for plan in plans]
+    problems = [f"two plans for {year}" for year in sorted(set(years)) if years.count(year) > 1]
+    problems += [
         f"{where}: {_unknown(key, buckets)}"
+        for plan in plans
         for where, key in _bucket_references(plan)
         if key not in buckets
     ]
     booked: defaultdict[dt.date, Decimal] = defaultdict(Decimal)
-    for leave in plan.leaves:
+    for leave in (leave for plan in plans for leave in plan.leaves):
         bucket = buckets.get(leave.bucket)
         if bucket is not None and bucket.unit is Unit.CALENDAR_DAYS and leave.hours is not None:
             problems.append(f"{leave}: bucket {leave.bucket!r} counts whole calendar days")
@@ -260,7 +270,7 @@ def check_year(plan: YearPlan, buckets: Mapping[str, Bucket], calendar: WorkCale
 
 def _bucket_references(plan: YearPlan) -> Iterator[tuple[str, str]]:
     for key in plan.carry_over:
-        yield "carry_over", key
+        yield f"carry_over {plan.year}", key
     for leave in plan.leaves:
         yield str(leave), leave.bucket
     for payslip in plan.payslips:
