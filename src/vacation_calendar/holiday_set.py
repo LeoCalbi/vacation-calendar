@@ -2,6 +2,7 @@
 
 import datetime as dt
 from collections import defaultdict
+from functools import cached_property
 from typing import Self
 
 import holidays
@@ -11,7 +12,11 @@ from vacation_calendar.dates import DateSpec, Frozen, Validity
 
 
 class CountryBase(Frozen):
-    """Public holidays of a country, optionally of one subdivision (state, region, province)."""
+    """Public holidays of a country, optionally of one subdivision (state, region, province).
+
+    Names are in `language`, or in the country's own default language when it is unset: never
+    in the system locale, so a removal by name matches the same way on every machine.
+    """
 
     country: str
     subdiv: str | None = None
@@ -26,30 +31,56 @@ class CountryBase(Frozen):
         if self.subdiv is not None and self.subdiv not in supported[self.country]:
             msg = f"subdivision {self.subdiv!r} is not supported for {self.country}"
             raise ValueError(msg)
+        _check_language(self._entity, self.language, self.country)
         return self
+
+    @cached_property
+    def _entity(self) -> holidays.HolidayBase:
+        return holidays.country_holidays(self.country, subdiv=self.subdiv)
 
     def load(self, year: int) -> holidays.HolidayBase:
         """Return the library's holidays for `year`."""
         return holidays.country_holidays(
-            self.country, subdiv=self.subdiv, years=year, language=self.language
+            self.country,
+            subdiv=self.subdiv,
+            years=year,
+            language=self.language or self._entity.default_language,
         )
 
 
 class MarketBase(Frozen):
-    """Holidays of a financial market, such as `XNYS` (New York Stock Exchange)."""
+    """Holidays of a financial market, such as `XNYS` (New York Stock Exchange).
+
+    Names follow the same language rule as `CountryBase`.
+    """
 
     market: str
+    language: str | None = None
 
     @model_validator(mode="after")
     def _check_supported(self) -> Self:
         if self.market not in holidays.list_supported_financial():
             msg = f"market {self.market!r} is not supported by the holidays library"
             raise ValueError(msg)
+        _check_language(self._entity, self.language, self.market)
         return self
+
+    @cached_property
+    def _entity(self) -> holidays.HolidayBase:
+        return holidays.financial_holidays(self.market)
 
     def load(self, year: int) -> holidays.HolidayBase:
         """Return the library's holidays for `year`."""
-        return holidays.financial_holidays(self.market, years=year)
+        return holidays.financial_holidays(
+            self.market, years=year, language=self.language or self._entity.default_language
+        )
+
+
+def _check_language(entity: holidays.HolidayBase, language: str | None, owner: str) -> None:
+    if language is not None and language not in entity.supported_languages:
+        choices = ", ".join(entity.supported_languages) or "none"
+        msg = f"language {language!r} is not supported for {owner}; supported: {choices}"
+        raise ValueError(msg)
 
 
 class HolidayAddition(DateSpec):

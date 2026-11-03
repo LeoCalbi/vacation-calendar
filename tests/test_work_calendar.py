@@ -51,19 +51,51 @@ def test_removal_by_name_frees_the_day() -> None:
     base = CountryBase(country="IT")
     friday = dt.date(2025, 12, 26)
     assert kind(calendar(base=base), friday) is DayKind.HOLIDAY
-    cal = calendar(base=base, remove=[HolidayRemoval(name="Saint Stephen's Day")])
+    cal = calendar(base=base, remove=[HolidayRemoval(name="Santo Stefano")])
     assert cal.day(friday).kind is DayKind.WORKING
     assert cal.day(friday).hours == Decimal(8)
 
 
 def test_removal_by_name_keeps_other_names_on_the_same_day() -> None:
     cal = calendar(
-        base=CountryBase(country="IT", subdiv="BO"),
+        base=CountryBase(country="IT", subdiv="BO", language="en_US"),
         remove=[HolidayRemoval(name="Saint Petronius's Day")],
     )
     assert cal.holidays(2026)[dt.date(2026, 10, 4)] == (
         "Saint Francis of Assisi, Patron Saint of Italy",
     )
+
+
+@pytest.fixture
+def english_locale(monkeypatch: pytest.MonkeyPatch) -> None:
+    for variable in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
+        monkeypatch.setenv(variable, "en_US.UTF-8")
+
+
+@pytest.fixture
+def italian_locale(monkeypatch: pytest.MonkeyPatch) -> None:
+    for variable in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
+        monkeypatch.setenv(variable, "it_IT.UTF-8")
+
+
+@pytest.mark.usefixtures("english_locale")
+def test_country_names_default_to_its_language_not_the_locale() -> None:
+    cal = calendar(base=CountryBase(country="IT"))
+    assert cal.holidays(2026)[dt.date(2026, 12, 26)] == ("Santo Stefano",)
+
+
+def test_market_names_default_to_its_language_not_the_locale(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LANGUAGE", "hi")  # a language XNYS supports, unlike Italian
+    cal = calendar(base=MarketBase(market="XNYS"))
+    assert cal.holidays(2026)[dt.date(2026, 4, 3)] == ("Good Friday",)
+
+
+@pytest.mark.usefixtures("italian_locale")
+def test_explicit_language() -> None:
+    cal = calendar(base=CountryBase(country="DE", subdiv="BY", language="en_US"))
+    assert cal.holidays(2026)[dt.date(2026, 1, 6)] == ("Epiphany",)
 
 
 def test_removal_by_date_respects_validity() -> None:
@@ -179,6 +211,11 @@ def test_market_base() -> None:
         ({"base": {"country": "XX"}}, "country 'XX' is not supported"),
         ({"base": {"country": "IT", "subdiv": "ZZ"}}, "subdivision 'ZZ' is not supported"),
         ({"base": {"market": "NOPE"}}, "market 'NOPE' is not supported"),
+        (
+            {"base": {"country": "IT", "language": "it"}},
+            "language 'it' is not supported for IT; supported: en_US, it_IT, th",
+        ),
+        ({"base": {"market": "XNYS", "language": "it_IT"}}, "not supported for XNYS"),
         ({"schedule": [*SINCE_2020, *SINCE_2020]}, "start on the same day"),
         ({"schedule": []}, "at least 1 item"),
         ({"remove": [{"date": dt.date(2026, 1, 1), "name": "New Year"}]}, "exactly one of"),
