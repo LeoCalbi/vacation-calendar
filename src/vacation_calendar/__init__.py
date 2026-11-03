@@ -1,4 +1,6 @@
-"""Vacation calendar planner for work holidays."""
+"""Plan work time off across years: public and company holidays, accrual, and leave balances."""
 
-__version__: str = "0.1.0"
+from importlib.metadata import version
+
+__version__: str = version("vacation-calendar")
 """The package version."""

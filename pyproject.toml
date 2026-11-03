@@ -1,104 +1,155 @@
 [build-system]
-build-backend = "setuptools.build_meta"
-requires = ["setuptools"]
+build-backend = "hatchling.build"
+requires = ["hatchling>=1.27"]
 
 [project]
 authors = [
   { name = "Leonardo Calbi", email = "leocalbi@gmail.com" },
   { name = "Marcello De Giorgi", email = "degiorgimarcello@gmail.com" },
 ]
-dependencies = ["jupyter", "pandas", "holidays", "streamlit"]
-description = """\
-  Work holiday management tool.\
-  """
-dynamic = ["version"]
-keywords = ["work", "vacation", "planner", "holiday", "management"]
-license = { text = "Commercial" }
-name = "work_holiday"
-requires-python = ">=3.11"
-
-[project.optional-dependencies]
-dev = [
-  "bandit",
-  "black[jupyter]",
-  "flake8-bugbear",
-  "flake8-docstrings",
-  "flake8-pyproject",
-  "flake8",
-  "isort",
-  "mypy",
-  "pandas-stubs",
-  "pyupgrade",
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Topic :: Office/Business :: Scheduling",
+  "Typing :: Typed",
 ]
-
-[project.scripts]
-
-[project.readme]
-content-type = "text/markdown"
-file = "README.md"
+dependencies = []
+description = "Plan work time off across years: public and company holidays, accrual, and leave balances."
+keywords = ["holiday", "leave", "planner", "pto", "vacation"]
+license = "MIT"
+license-files = ["LICENSE"]
+name = "vacation-calendar"
+readme = "README.md"
+requires-python = ">=3.13"
+version = "0.2.0.dev0"
 
 [project.urls]
 homepage = "https://github.com/LeoCalbi/vacation-calendar"
 repository = "https://github.com/LeoCalbi/vacation-calendar"
 
-[tool.setuptools.dynamic]
-version = { attr = "vacation_calendar.__version__" }
+[tool.hatch.build.targets.wheel]
+packages = ["src/vacation_calendar"]
 
-[tool.setuptools.packages.find]
-include = ["vacation_calendar"]
-where=["src"]
-[tool.setuptools.package-data]
-"*" = ["py.typed"]
+# Pixi: the dev environment runs the newest supported Python; the py3XX environments
+# run the test suite on each supported version.
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
 
-[tool.bandit]
-exclude_dirs = ["tests"]
-skips = ["B101"]
+[tool.pixi.pypi-dependencies]
+vacation-calendar = { path = ".", editable = true }
 
-[tool.black]
+[tool.pixi.feature.py313.dependencies]
+python = "3.13.*"
+
+[tool.pixi.feature.py314.dependencies]
+python = "3.14.*"
+
+[tool.pixi.feature.py315.dependencies]
+python = "3.15.*"
+
+[tool.pixi.feature.test.dependencies]
+hypothesis = "*"
+pytest = "*"
+
+[tool.pixi.feature.test.tasks]
+test = { cmd = "pytest", description = "Run the test suite" }
+
+[tool.pixi.feature.lint.dependencies]
+mypy = "*"
+ruff = "*"
+
+[tool.pixi.feature.lint.tasks]
+check = { depends-on = ["lint", "typecheck", "test"], description = "Run every check CI runs" }
+fmt = { cmd = "ruff format && ruff check --fix", description = "Format and autofix" }
+lint = { cmd = "ruff format --check && ruff check", description = "Check format and lint" }
+typecheck = { cmd = "mypy", description = "Type-check sources and tests" }
+
+[tool.pixi.environments]
+default = { features = ["py314", "test", "lint"], solve-group = "py314" }
+py313 = { features = ["py313", "test"] }
+py314 = { features = ["py314", "test"], solve-group = "py314" }
+py315 = { features = ["py315", "test"] }
+
+[tool.ruff]
 line-length = 100
-target-version = ['py311']
+src = ["src", "tests"]
+target-version = "py313"
 
-[tool.isort]
-line_length = 100
-profile = "black"
-py_version = 311
-sections = [
-  'FUTURE',
-  'STDLIB',
-  'THIRDPARTY',
-  'FIRSTPARTY',
-  'LOCALFOLDER',
-  # 'TESTS', # no tests at the moment
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+  "A",    # flake8-builtins
+  "ARG",  # flake8-unused-arguments
+  "B",    # flake8-bugbear
+  "BLE",  # flake8-blind-except
+  "C4",   # flake8-comprehensions
+  "C90",  # mccabe
+  "D",    # pydocstyle
+  "DTZ",  # flake8-datetimez
+  "E",    # pycodestyle errors
+  "EM",   # flake8-errmsg
+  "ERA",  # eradicate
+  "F",    # pyflakes
+  "FA",   # flake8-future-annotations
+  "FBT",  # flake8-boolean-trap
+  "FURB", # refurb
+  "G",    # flake8-logging-format
+  "I",    # isort
+  "INP",  # flake8-no-pep420
+  "ISC",  # flake8-implicit-str-concat
+  "LOG",  # flake8-logging
+  "N",    # pep8-naming
+  "PERF", # perflint
+  "PGH",  # pygrep-hooks
+  "PIE",  # flake8-pie
+  "PL",   # pylint
+  "PT",   # flake8-pytest-style
+  "PTH",  # flake8-use-pathlib
+  "Q",    # flake8-quotes
+  "RET",  # flake8-return
+  "RSE",  # flake8-raise
+  "RUF",  # ruff-specific
+  "S",    # flake8-bandit
+  "SIM",  # flake8-simplify
+  "SLF",  # flake8-self
+  "T20",  # flake8-print
+  "TC",   # flake8-type-checking
+  "TID",  # flake8-tidy-imports
+  "TRY",  # tryceratops
+  "UP",   # pyupgrade
+  "W",    # pycodestyle warnings
 ]
-skip_gitignore = true
-src_paths = ["src", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/vacation_calendar/cli.py" = ["FBT001", "FBT002"] # Typer declares flags as bool parameters
+"tests/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "INP001", "PLR2004", "S101"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+case-sensitive = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.mypy]
-disallow_incomplete_defs = true
-exclude = ["^build/", "^tests/"]
-follow_imports = "silent"
-ignore_missing_imports = true
-no_implicit_optional = false
-python_version = "3.11"
-show_column_numbers = true
-show_error_codes = true
-warn_no_return = true
-warn_return_any = false
+files = ["src", "tests"]
+python_version = "3.13"
+strict = true
 warn_unreachable = true
-warn_unused_configs = true
-warn_unused_ignores = true
 
 [tool.pytest.ini_options]
-# addopts = "--maxfail=25 --cov-report=html --cov-report=term --no-cov-on-fail -ra"
-# uncomment to enable log display during test run, not just on failure.
-# use log_cli_level to customize the log level log_cli, as it does not use the environment setting
-# log_cli = true
-# log_cli_level = 'info'
-log_format = "%(asctime)s|%(levelname).3s|%(name)s:%(funcName)s:%(lineno)d|%(message)s"
-
-[tool.flake8]
-docstring-convention = "google"
-exclude = [".git", "__pycache__", "build"]
-extend-ignore = ["E203", "E265", "E402", "W503", "D401", "B024", "D418", "D105"]
-max-line-length = 101
-per-file-ignores = ["__init__.py:F401"]
+addopts = ["--import-mode=importlib", "--strict-config", "--strict-markers", "-ra"]
+filterwarnings = ["error"]
+testpaths = ["tests"]
+xfail_strict = true
