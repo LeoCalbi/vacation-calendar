@@ -16,6 +16,7 @@ from vacation_calendar.storage import (
     check_folder,
     copy_example,
     data_dir,
+    example_description,
     example_names,
     read_config,
     read_plans,
@@ -332,6 +333,14 @@ def test_the_examples_load_and_build_a_ledger(name: str) -> None:
         for key, (march, december) in EXAMPLE_CLOSINGS[name].items()
     }
     assert ledger.notices == ()
+
+
+def test_an_example_is_described_by_the_first_sentence_of_its_comment() -> None:
+    assert example_description("it-bo") == (
+        "A full-time employee in Bologna, Italy, under the CCNL Metalmeccanici Industria, the"
+        " national collective agreement of the metalworking industry."
+    )
+    assert example_description("cn") == "A full-time employee in China, working Monday to Friday."
 
 
 def test_copy_example_writes_the_config_and_refuses_to_overwrite(tmp_path: Path) -> None:

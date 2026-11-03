@@ -21,10 +21,13 @@ classifiers = [
 ]
 dependencies = [
   "holidays>=0.108",
+  "icalendar>=7.3",
   "platformdirs>=4.14",
   "pydantic>=2.14",
   "python-dateutil>=2.9",
+  "rich>=15",
   "tomlkit>=0.15",
+  "typer>=0.27",
 ]
 description = "Plan work time off across years: public and company holidays, accrual, and leave balances."
 keywords = ["holiday", "leave", "planner", "pto", "vacation"]
@@ -34,6 +37,9 @@ name = "vacation-calendar"
 readme = "README.md"
 requires-python = ">=3.13"
 version = "0.2.0.dev0"
+
+[project.scripts]
+vacation-calendar = "vacation_calendar.cli:app"
 
 [project.urls]
 homepage = "https://github.com/LeoCalbi/vacation-calendar"
@@ -91,10 +97,13 @@ py315 = { features = ["py315", "test"] }
 
 [tool.pixi.dependencies]
 holidays = ">=0.108,<0.109"
+icalendar = ">=7.3.0,<8"
 platformdirs = ">=4.14.3,<5"
 pydantic = ">=2.14.2,<3"
 python-dateutil = ">=2.9.0.post0,<3"
+rich = ">=15.0.0,<16"
 tomlkit = ">=0.15.2,<0.16"
+typer = ">=0.27.3,<0.28"
 
 [tool.ruff]
 line-length = 100
@@ -149,7 +158,8 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/vacation_calendar/cli.py" = ["FBT001", "FBT002"] # Typer declares flags as bool parameters
+# Typer declares each option as a parameter, flags as bool ones
+"src/vacation_calendar/cli.py" = ["FBT001", "FBT002", "PLR0913", "PLR0917"]
 "tests/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "INP001", "PLR2004", "S101"]
 
 [tool.ruff.lint.flake8-tidy-imports]

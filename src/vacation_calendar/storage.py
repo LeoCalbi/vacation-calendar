@@ -7,6 +7,7 @@ version.
 """
 
 import datetime as dt
+import itertools
 import os
 import re
 import shutil
@@ -244,6 +245,16 @@ class YearFile:
 def example_names() -> list[str]:
     """Return the names of the example data folders shipped with the package."""
     return sorted(entry.name for entry in _examples().iterdir() if entry.is_dir())
+
+
+def example_description(name: str) -> str:
+    """Return the first sentence of the comment that opens the example's `config.toml`."""
+    text = _examples().joinpath(name, CONFIG_FILE).read_text(encoding="utf-8")
+    lines = [line.removeprefix("# ") for line in text.splitlines()]
+    comment = " ".join(
+        itertools.takewhile(lambda line: not line.startswith(("#", "schema")), lines)
+    )
+    return comment.split(". ", 1)[0].removesuffix(".") + "."
 
 
 def copy_example(name: str, folder: Path, *, with_years: bool = False) -> list[Path]:
