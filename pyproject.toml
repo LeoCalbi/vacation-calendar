@@ -76,7 +76,9 @@ hypothesis = "*"
 pytest = "*"
 
 [tool.pixi.feature.test.tasks]
-test = { cmd = "pytest", description = "Run the test suite" }
+# Windows runs Python 3.13 and 3.14 with a non-UTF-8 default encoding: warn (an error under
+# pytest's filterwarnings) on every platform where code relies on the default.
+test = { cmd = "pytest", description = "Run the test suite", env = { PYTHONWARNDEFAULTENCODING = "1" } }
 
 [tool.pixi.feature.lint.dependencies]
 mypy = "*"

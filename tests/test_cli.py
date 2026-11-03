@@ -274,7 +274,8 @@ def test_report_explains_a_payslip_lag(folder: Path) -> None:
     assert note not in run(folder, "report")
     config = folder / "config.toml"
     config.write_text(
-        config.read_text("utf-8").replace("schema = 1\n", "schema = 1\npayslip_lag = 1\n")
+        config.read_text("utf-8").replace("schema = 1\n", "schema = 1\npayslip_lag = 1\n"),
+        encoding="utf-8",
     )
     output = run(folder, "report", "2026-08..2026-09")
     assert note in output
