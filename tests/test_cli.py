@@ -269,6 +269,21 @@ def test_report_lists_notices_and_lots(folder: Path) -> None:
     assert "Notices" not in run(folder, "report", "2026-11..2026-12")
 
 
+def test_report_explains_a_payslip_lag(folder: Path) -> None:
+    note = "Payslips count leave 1 month late: Delta compares them with Close plus that leave."
+    assert note not in run(folder, "report")
+    config = folder / "config.toml"
+    config.write_text(
+        config.read_text("utf-8").replace("schema = 1\n", "schema = 1\npayslip_lag = 1\n")
+    )
+    output = run(folder, "report", "2026-08..2026-09")
+    assert note in output
+    assert "Payslips count" not in run(folder, "report", "2026-08")  # no payslip shown
+    rows = table(output, "Ferie")
+    assert rows["2026-09"][rows["Month"].index("Close")] == "66.47"
+    assert rows["2026-09"][-1] == "66.47"  # September has no leave, so the payslip still matches
+
+
 def test_report_strict_fails_on_a_negative_balance(folder: Path) -> None:
     run(folder, "add", "2026-02-02", "2026-02-27", "-b", "vacation")
     error = run(folder, "report", "--strict", code=1)

@@ -83,7 +83,7 @@ The ICS file holds one all-day event per leave, for import into any calendar app
 | Adjust | a carry-over that differs from the computed one, or a payslip override (shown only when there is one) |
 | Close | Open + Accrued − Taken − Planned − Closures + Adjust |
 | Days | an hours bucket's closing balance in days of the schedule's usual length |
-| Payslip, Delta | a payslip's balance and its difference from the computed one |
+| Payslip, Delta | a payslip's balance and its difference from the computed one (see `payslip_lag`) |
 
 `--lots` adds the balance split by the year it accrued in; leave uses the oldest year first. `--strict` fails when a balance goes below zero. Below the tables come the notices: a planned leave that has already passed, a payslip that differs from the computed balance, a negative balance, a leave that uses nothing, a first year without a carry-over.
 
@@ -95,6 +95,7 @@ The folder holds `config.toml`, the settings shared by every year, and one file 
 
 ```toml
 schema = 1
+payslip_lag = 1  # optional: your payslip counts leave one month late
 
 [holidays]
 base = { country = "IT", subdiv = "BO" }  # or { market = "XNYS" }, or {} for no public holidays
@@ -131,6 +132,7 @@ accrual = [{ valid_from = 2025-01-01, monthly = 8.67 }]
 - `[[extra_workdays]]` turns rest days into working days (`date`, range or `rule`, with optional `hours`); make-up days that the base already knows, as in China, are included without it.
 - A bucket's `accrual` is a list of dated entries: `monthly` is credited each month from `valid_from`, which must be the 1st; `yearly` is granted each year on the month and day of `valid_from`. Each entry applies until the next one starts, so seniority steps are entries with later dates.
 - Amounts have at most two decimals, like a payslip.
+- `payslip_lag` (default 0) is for payrolls that count leave late: with 1, the June payslip has the accrual up to June but the leave only up to May. Payslip checks and overrides then compare with the closing balance plus the leave the payslip does not count yet, and the report says so under the tables. It must sit above the first table, next to `schema`.
 
 ### `YYYY.toml`
 
@@ -162,6 +164,7 @@ balances = { vacation = 61.2, rol = 40.1 }  # the closing balances the payslip p
 - A leave belongs to the file of the year it starts in and may end in the next year, so a Christmas break stays one entry.
 - `hours` are always hours, also for a days bucket: a 4-hour leave on an 8-hour day uses half a day. A calendar-days bucket counts every day of the range, weekends and holidays included, and takes no `hours`.
 - A carry-over given for a later year is treated as a correction: the report shows it in Adjust.
+- A carry-over is the real balance on 1 January, after all the leave of the year before. With a `payslip_lag`, the "previous year" figure on a payslip may not be that: it can still include leave taken in the last month of the year before. Subtract that leave.
 - The commands keep your comments when they edit a file.
 
 ## Examples

@@ -308,9 +308,14 @@ def report_command(
         config, plans = storage.check_folder(ctx.obj)
         first, last = _period(period, dt.date(today.year, 1, 1), dt.date(today.year, 12, 1))
         ledger = _build(config, plans, first, last, strict=strict)
+    payslips_shown = False
     for key, bucket in config.buckets.items():
         rows = [row for row in ledger.rows[key] if first <= row.month <= last]
         _show(report.bucket_table(key, bucket, rows, config, lots=lots))
+        payslips_shown |= any(row.payslip is not None for row in rows)
+    if config.payslip_lag and payslips_shown:
+        months = f"{config.payslip_lag} month{'s' if config.payslip_lag > 1 else ''}"
+        _say(f"Payslips count leave {months} late: Delta compares them with Close plus that leave.")
     after = (last.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
     notices = [notice for notice in ledger.notices if first <= notice.day < after]
     if notices:

@@ -113,6 +113,16 @@ def test_config_puts_holidays_closures_and_schedule_in_the_calendar(folder: Path
     assert config.buckets["vacation"].accrual[0].monthly == Decimal("13.33")
 
 
+def test_the_payslip_lag_is_a_top_level_setting(folder: Path) -> None:
+    assert read_config(folder).payslip_lag == 0
+    (folder / "config.toml").write_text(f"payslip_lag = 1\n{CONFIG}", encoding="utf-8")
+    assert read_config(folder).payslip_lag == 1
+    (folder / "config.toml").write_text(f"payslip_lag = 13\n{CONFIG}", encoding="utf-8")
+    with pytest.raises(StorageError) as error:
+        read_config(folder)
+    assert problems(error) == ["payslip_lag: Input should be less than or equal to 12"]
+
+
 def test_an_empty_base_means_no_public_holidays(folder: Path) -> None:
     text = CONFIG.replace('{ country = "IT", subdiv = "BO", language = "en_US" }', "{}")
     (folder / "config.toml").write_text(text, encoding="utf-8")

@@ -51,6 +51,7 @@ _TEMPLATE = """\
 # vacation-calendar settings. Replace the placeholders with the numbers of your contract;
 # every field is explained in https://github.com/LeoCalbi/vacation-calendar#the-data-folder
 schema = 1
+# payslip_lag = 1  # when your payslip counts leave a month late, as many payrolls do
 
 [holidays]
 base = {base}  # names in the country's language; add language = "en_US" for English

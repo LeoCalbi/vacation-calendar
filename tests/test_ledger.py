@@ -147,6 +147,66 @@ def test_payslip_mismatch_notice_only_in_check_mode() -> None:
     assert kinds("override") == []
 
 
+LAGGED = CONFIG.model_copy(update={"payslip_lag": 1})
+
+
+@pytest.mark.parametrize(
+    ("config", "deltas"),
+    [
+        (LAGGED, {"2026-02": Decimal(0), "2026-03": Decimal(0)}),
+        (CONFIG, {"2026-02": Decimal(8), "2026-03": Decimal(0)}),
+    ],
+)
+def test_a_lagging_payslip_counts_the_leave_one_month_late(
+    config: Config, deltas: dict[str, Decimal]
+) -> None:
+    # February's payslip shows two months of accrual but not February's 8 h of leave
+    payslips = [
+        {"month": "2026-02", "mode": "check", "balances": {"rol": "17.34"}},
+        {"month": "2026-03", "mode": "check", "balances": {"rol": "18.01"}},
+    ]
+    leave = {"date": "2026-02-03", "bucket": "rol", "state": "taken"}
+    result = ledger(plan(carry_over={"rol": 0}, leaves=[leave], payslips=payslips), config=config)
+    by_month = rows(result, "rol")
+    assert {month: by_month[month].delta for month in deltas} == deltas
+    assert by_month["2026-02"].closing == Decimal("9.34")
+
+
+def test_a_lagging_mismatch_notice_shows_what_the_payslip_should_say() -> None:
+    payslip = {"month": "2026-02", "mode": "check", "balances": {"rol": "18.34"}}
+    leave = {"date": "2026-02-03", "bucket": "rol", "state": "taken"}
+    result = ledger(plan(carry_over={"rol": 0}, leaves=[leave], payslips=[payslip]), config=LAGGED)
+    messages = [notice.message for notice in result.notices if notice.bucket == "rol"]
+    assert messages == ["rol: payslip 2026-02 shows 18.34, computed 17.34 (+1.00)"]
+
+
+def test_a_lagging_override_keeps_the_unseen_leave() -> None:
+    payslip = {"month": "2026-02", "mode": "override", "balances": {"rol": 20}}
+    leave = {"date": "2026-02-03", "bucket": "rol", "state": "taken"}
+    result = ledger(plan(carry_over={"rol": 0}, leaves=[leave], payslips=[payslip]), config=LAGGED)
+    february = rows(result, "rol")["2026-02"]
+    assert (february.delta, february.adjustment) == (Decimal("2.66"), Decimal("2.66"))
+    assert february.closing == 12  # the payslip's 20 minus the 8 h it does not count yet
+
+
+def test_a_two_month_lag_reaches_back_into_the_previous_year_but_not_before_the_ledger() -> None:
+    config = CONFIG.model_copy(update={"payslip_lag": 2})
+    december = {"date": "2026-12-07", "bucket": "rol", "state": "taken"}
+    january = {"date": "2027-01-04", "hours": 2, "bucket": "rol", "state": "taken"}
+    payslips_2026 = [{"month": "2026-01", "mode": "check", "balances": {"rol": "8.67"}}]
+    leave_2026 = {"date": "2026-01-05", "hours": 1, "bucket": "rol", "state": "taken"}
+    payslips_2027 = [{"month": "2027-01", "mode": "check", "balances": {"rol": "111.71"}}]
+    result = ledger(
+        plan(carry_over={"rol": 0}, leaves=[leave_2026, december], payslips=payslips_2026),
+        plan(2027, leaves=[january], payslips=payslips_2027),
+        config=config,
+    )
+    by_month = rows(result, "rol")
+    assert by_month["2026-01"].delta == 0  # only January's 1 h is unseen: nothing before it
+    assert by_month["2027-01"].closing == Decimal("101.71")  # 104.04 - 1 - 8 + 8.67 - 2
+    assert by_month["2027-01"].delta == 0  # December's 8 h and January's 2 h are unseen
+
+
 def test_yearly_grant_and_half_days_in_a_days_bucket() -> None:
     result = ledger(
         plan(
@@ -349,13 +409,16 @@ def test_every_row_balances(year_plan: YearPlan) -> None:
             previous = row
 
 
-@given(year_plans())
-def test_an_override_sets_the_closing_to_the_payslip(year_plan: YearPlan) -> None:
-    result = ledger(year_plan)
+@given(year_plans(), st.integers(0, 3))
+def test_an_override_sets_the_closing_to_the_payslip(year_plan: YearPlan, lag: int) -> None:
+    result = ledger(year_plan, config=CONFIG.model_copy(update={"payslip_lag": lag}))
     for payslip in year_plan.payslips:
         for bucket, balance in payslip.balances.items():
-            row = rows(result, bucket)[f"{payslip.month:%Y-%m}"]
+            index = payslip.month.month - 1
+            recent = result.rows[bucket][max(0, index - lag + 1) : index + 1] if lag else ()
+            unseen = sum((row.taken + row.planned + row.closures for row in recent), Decimal(0))
+            row = result.rows[bucket][index]
             if payslip.mode is PayslipMode.OVERRIDE:
-                assert row.closing == balance
+                assert row.closing + unseen == balance
             else:
-                assert row.closing == balance - (row.delta or 0)
+                assert row.closing + unseen == balance - (row.delta or 0)

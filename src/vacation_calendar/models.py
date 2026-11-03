@@ -92,10 +92,15 @@ class Bucket(Frozen):
 
 
 class Config(Frozen):
-    """The settings shared by every year: the work calendar and the buckets, by key."""
+    """The settings shared by every year: the work calendar and the buckets, by key.
+
+    `payslip_lag` is how many months late payslips count leave: with 1, the payslip of June
+    shows the accrual up to June but the leave only up to May, as many payrolls do.
+    """
 
     calendar: CalendarConfig
     buckets: dict[str, Bucket] = Field(min_length=1)
+    payslip_lag: int = Field(default=0, ge=0, le=12)
 
     @model_validator(mode="after")
     def _check_closure_buckets(self) -> Self:

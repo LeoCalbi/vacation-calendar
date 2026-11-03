@@ -54,7 +54,8 @@ class MonthRow:
 
     `closing` is `opening + accrued - taken - planned - closures + adjustment`. The `adjustment`
     re-anchors the balance: a carry-over given in a year file, or a payslip in override mode.
-    `delta` is the payslip balance minus the computed closing, before any override. `lots` splits
+    `delta` is the payslip balance minus the computed balance as the payslip sees it, before any
+    override: the closing plus the leave of the last `Config.payslip_lag` months. `lots` splits
     the closing by the year it accrued in; leave uses the oldest first.
     """
 
@@ -135,10 +136,7 @@ def build_ledger(
     months = [(month, by_year.get(month.year)) for month in _months(start, end)]
     notices = list(_leave_notices(plans, config.buckets, calendar, today))
     use = _usage(plans, config.buckets, calendar, start, end)
-    rows = {
-        key: tuple(_bucket_rows(key, bucket, months, use, notices))
-        for key, bucket in config.buckets.items()
-    }
+    rows = {key: tuple(_bucket_rows(key, config, months, use, notices)) for key in config.buckets}
     negative = [notice for notice in notices if notice.kind is NoticeKind.NEGATIVE_BALANCE]
     if strict and negative:
         raise NegativeBalanceError(negative)
@@ -147,13 +145,15 @@ def build_ledger(
 
 def _bucket_rows(
     key: str,
-    bucket: Bucket,
+    config: Config,
     months: Sequence[tuple[dt.date, YearPlan | None]],
     use: Mapping[tuple[str, dt.date], _Use],
     notices: list[Notice],
 ) -> Iterator[MonthRow]:
+    bucket, lag = config.buckets[key], config.payslip_lag
     lots: defaultdict[int, Decimal] = defaultdict(Decimal)
     closing: Decimal | None = None
+    history: list[Decimal] = []  # each month's use, for the payslip lag
     for month, plan in months:
         given = plan.carry_over.get(key) if plan is not None and month.month == 1 else None
         adjustment = _ZERO
@@ -179,22 +179,25 @@ def _bucket_rows(
         _debit(lots, used.total, month.year)
         _credit(lots, month.year, accrued)
         closing = opening + adjustment + accrued - used.total
+        history.append(used.total)
+        # The leave of the last `lag` months, which the month's payslip does not count yet.
+        unseen = sum(history[-lag:], _ZERO) if lag else _ZERO
         payslip = (
             next((entry for entry in plan.payslips if entry.month == month), None) if plan else None
         )
         balance = payslip.balances.get(key) if payslip is not None else None
-        delta = None if balance is None else balance - closing
+        delta = None if balance is None else balance - (closing + unseen)
         if payslip is not None and balance is not None and delta:
             if payslip.mode is PayslipMode.OVERRIDE:
                 adjustment += delta
                 _credit(lots, month.year, delta)
-                closing = balance
+                closing += delta
             else:
                 notices.append(
                     Notice(
                         NoticeKind.PAYSLIP_MISMATCH,
                         _month_end(month),
-                        f"{key}: payslip {month:%Y-%m} shows {balance}, computed {closing}"
+                        f"{key}: payslip {month:%Y-%m} shows {balance}, computed {closing + unseen}"
                         f" ({delta:+})",
                         key,
                     )
