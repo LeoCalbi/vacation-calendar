@@ -72,12 +72,18 @@ def test_yearly_grant_on_a_hire_anniversary() -> None:
 @pytest.mark.parametrize(
     ("fields", "message"),
     [
-        ({"valid_from": dt.date(2026, 1, 1)}, "exactly one of: monthly, yearly"),
+        ({"valid_from": dt.date(2026, 1, 1)}, "exactly one of: monthly, per_year, yearly"),
         (
             {"valid_from": dt.date(2026, 1, 1), "monthly": 1, "yearly": 12},
-            "exactly one of: monthly, yearly",
+            "exactly one of: monthly, per_year, yearly",
+        ),
+        (
+            {"valid_from": dt.date(2026, 1, 1), "per_year": 160, "monthly": 1},
+            "exactly one of: monthly, per_year, yearly",
         ),
         ({"valid_from": dt.date(2026, 1, 15), "monthly": 1}, "month's first day, not 2026-01-15"),
+        ({"valid_from": dt.date(2026, 1, 2), "per_year": 160}, "month's first day, not 2026-01-02"),
+        ({"valid_from": dt.date(2026, 1, 1), "per_year": -1}, "greater than or equal to 0"),
         ({"valid_from": dt.date(2028, 2, 29), "yearly": 20}, "cannot fall on 29 February"),
         ({"valid_from": dt.date(2026, 1, 1), "monthly": 104 / 12}, "no more than 2 decimal"),
         ({"valid_from": dt.date(2026, 1, 1), "monthly": -1}, "greater than or equal to 0"),

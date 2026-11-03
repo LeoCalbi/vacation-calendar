@@ -50,19 +50,23 @@ class Accrual(Frozen):
     """How a bucket grows from `valid_from` until the next entry.
 
     `monthly` is credited for each month from `valid_from`, which must be a month's first day.
+    `per_year` is a yearly total credited month by month from `valid_from`, also a month's first
+    day: a twelfth rounded to the cent, with the cents left over going to the first months of
+    the calendar year, so that a whole year sums to `per_year` exactly.
     `yearly` is granted at once every year on the month and day of `valid_from`.
     """
 
     valid_from: dt.date
     monthly: Rate | None = None
+    per_year: Rate | None = None
     yearly: Rate | None = None
 
     @model_validator(mode="after")
     def _check_form(self) -> Self:
-        if (self.monthly is None) == (self.yearly is None):
-            msg = "give exactly one of: monthly, yearly"
+        if [self.monthly, self.per_year, self.yearly].count(None) != 2:  # noqa: PLR2004
+            msg = "give exactly one of: monthly, per_year, yearly"
             raise ValueError(msg)
-        if self.monthly is not None and self.valid_from.day != 1:
+        if self.yearly is None and self.valid_from.day != 1:
             msg = f"a monthly accrual starts on a month's first day, not {self.valid_from}"
             raise ValueError(msg)
         if self.yearly is not None and (self.valid_from.month, self.valid_from.day) == (2, 29):

@@ -229,9 +229,11 @@ def _bucket_rows(
 def _accrued(bucket: Bucket, month: dt.date) -> Decimal:
     """Return the monthly accrual in effect on the month's first day plus grants falling in it."""
     total = _ZERO
-    monthly = bucket.accrual_on(month)
-    if monthly is not None and monthly.monthly is not None:
-        total += monthly.monthly
+    current = bucket.accrual_on(month)
+    if current is not None and current.monthly is not None:
+        total += current.monthly
+    elif current is not None and current.per_year is not None:
+        total += _share(current.per_year, month.month)
     for entry in bucket.accrual:
         if entry.yearly is None or entry.valid_from.month != month.month:
             continue
@@ -239,6 +241,15 @@ def _accrued(bucket: Bucket, month: dt.date) -> Decimal:
         if grant >= entry.valid_from and bucket.accrual_on(grant) is entry:
             total += entry.yearly
     return total
+
+
+def _share(per_year: Decimal, month: int) -> Decimal:
+    """Return month `month`'s credit of `per_year`; the twelve credits sum to it exactly."""
+    base = (per_year / 12).quantize(_CENT, ROUND_HALF_UP)
+    leftover = int((per_year - 12 * base) / _CENT)  # between -6 and 6 cents
+    if month > abs(leftover):
+        return base
+    return base + _CENT if leftover > 0 else base - _CENT
 
 
 def _usage(

@@ -207,6 +207,42 @@ def test_a_two_month_lag_reaches_back_into_the_previous_year_but_not_before_the_
     assert by_month["2027-01"].delta == 0  # December's 8 h and January's 2 h are unseen
 
 
+def per_year_credits(total: str, valid_from: dt.date = dt.date(2026, 1, 1)) -> list[Decimal]:
+    bucket = Bucket(
+        name="Leave", accrual=(Accrual(valid_from=valid_from, per_year=Decimal(total)),)
+    )
+    config = CONFIG.model_copy(update={"buckets": {"leave": bucket}})
+    return [
+        row.accrued for row in ledger(plan(carry_over={"leave": 0}), config=config).rows["leave"]
+    ]
+
+
+@pytest.mark.parametrize(
+    ("total", "expected"),
+    [
+        # a payroll's 160 h and 104 h a year: the leftover cents go to the first months
+        ("160", ["13.34"] * 4 + ["13.33"] * 8),
+        ("104", ["8.66"] * 4 + ["8.67"] * 8),
+        ("30", ["2.5"] * 12),
+        ("0.06", ["0.00"] * 6 + ["0.01"] * 6),  # the most cents a rounded twelfth can leave over
+    ],
+)
+def test_a_yearly_total_is_credited_monthly_and_sums_exactly(
+    total: str, expected: list[str]
+) -> None:
+    assert per_year_credits(total) == [Decimal(credit) for credit in expected]
+
+
+def test_a_yearly_total_from_mid_year_follows_the_calendar_months() -> None:
+    march_on = per_year_credits("160", dt.date(2026, 3, 1))
+    assert march_on == [Decimal(0)] * 2 + [Decimal("13.34")] * 2 + [Decimal("13.33")] * 8
+
+
+@given(st.decimals(min_value=0, max_value=1000, places=2, allow_nan=False, allow_infinity=False))
+def test_twelve_monthly_credits_sum_to_the_yearly_total(total: Decimal) -> None:
+    assert sum(per_year_credits(str(total)), Decimal(0)) == total
+
+
 def test_yearly_grant_and_half_days_in_a_days_bucket() -> None:
     result = ledger(
         plan(

@@ -73,7 +73,7 @@ hours = {{ mon = 8, tue = 8, wed = 8, thu = 8, fri = 8 }}
 [buckets.vacation]
 name = "Vacation"
 unit = "days"  # hours, days (working days) or calendar_days
-accrual = [{{ valid_from = {year}-01-01, yearly = 20 }}]  # placeholder; or monthly = 1.67
+accrual = [{{ valid_from = {year}-01-01, yearly = 20 }}]  # placeholder; or per_year, monthly
 """
 
 
