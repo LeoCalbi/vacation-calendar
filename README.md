@@ -1,5 +1,7 @@
 # vacation-calendar
 
+[![CI](https://github.com/LeoCalbi/vacation-calendar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/LeoCalbi/vacation-calendar/actions/workflows/ci.yml) ![Python 3.13 | 3.14 | 3.15](https://img.shields.io/badge/python-3.13%20%7C%203.14%20%7C%203.15-blue) [![License: MIT](https://img.shields.io/github/license/LeoCalbi/vacation-calendar)](LICENSE) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) [![types: mypy strict](https://img.shields.io/badge/types-mypy%20strict-blue)](https://mypy-lang.org) [![Pixi](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/prefix-dev/pixi/main/assets/badge/v0.json)](https://pixi.sh)
+
 Plan work time off across years. vacation-calendar keeps a balance for each kind of leave you have (vacation, reduced hours, floating holidays), adds what you accrue each month or year, subtracts the leaves you take or plan, and checks the result against the balances your payslip prints. Public holidays come from the [`holidays`](https://github.com/vacanza/holidays) library, which covers most countries and many of their regions, and you can add company holidays and office closures on top.
 
 It is a command-line tool and a Python library. Your data lives in small TOML files you can read, edit and keep in git.
@@ -19,7 +21,13 @@ Not handled yet: expiry rules (leave that lapses after a deadline is tracked by 
 
 ## Install
 
-vacation-calendar needs Python 3.13 or newer. It is not on PyPI yet; install it from GitHub:
+vacation-calendar needs Python 3.13 or newer. It is not on PyPI yet; install it from GitHub. With [uv](https://docs.astral.sh/uv/), the command gets an environment of its own:
+
+```sh
+uv tool install git+https://github.com/LeoCalbi/vacation-calendar
+```
+
+To try it without installing, run `uvx --from git+https://github.com/LeoCalbi/vacation-calendar vacation-calendar --help`. With pip, in an environment of your choice:
 
 ```sh
 pip install git+https://github.com/LeoCalbi/vacation-calendar
