@@ -21,9 +21,9 @@ hours = { mon = 8, tue = 8, wed = 8, thu = 8, fri = 8 }
 [buckets.vacation]
 name = "Ferie"
 unit = "hours"
-accrual = [{ valid_from = 2025-01-01, monthly = 13.33 }]  # 160 h / 12, so 159.96 h a year
+accrual = [{ valid_from = 2025-01-01, per_year = 160 }]  # 13.34 h a month to April, then 13.33
 
 [buckets.rol]
 name = "ROL + ex-festività"
 unit = "hours"
-accrual = [{ valid_from = 2025-01-01, monthly = 8.67 }]  # 104 h / 12, so 104.04 h a year
+accrual = [{ valid_from = 2025-01-01, per_year = 104 }]  # 8.66 h a month to April, then 8.67

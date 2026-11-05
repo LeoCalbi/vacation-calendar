@@ -320,8 +320,8 @@ EXAMPLE_CLOSINGS = {
     "fr": {"conges": ("18.74", "13.46"), "rtt": ("12", "10")},
     # 6 - 5, + 20 on 1 April, - 4 - 4 - 5 - 3
     "gb-eng": {"annual": ("1", "5")},
-    # 42.5 + 12 x 13.33 - 88 leave - 40 closure; 30.17 + 12 x 8.67 - 20
-    "it-bo": {"vacation": ("66.49", "74.46"), "rol": ("52.18", "114.21")},
+    # 42.5 + 160 - 88 leave - 40 closure; 30.17 + 104 - 20 (13.34 and 8.66 a month to April)
+    "it-bo": {"vacation": ("66.52", "74.50"), "rol": ("52.15", "114.17")},
     # 9 - 2 - 3, + 12 on 1 October, - 1 (29, 30 December are company holidays)
     "jp": {"nenkyu": ("9", "15")},
     # 3 + 12 x 1.25 - 1 - 2 - 3 (26, 27 November are holidays) - 4; 1 - 1

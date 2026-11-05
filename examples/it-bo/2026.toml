@@ -45,4 +45,4 @@ state = "planned"
 [[payslips]]
 month = "2026-09"
 mode = "check"
-balances = { vacation = 66.47, rol = 96.2 }
+balances = { vacation = 66.51, rol = 96.16 }

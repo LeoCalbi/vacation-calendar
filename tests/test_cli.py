@@ -147,9 +147,9 @@ def test_holidays_default_to_this_year_and_skip_days_before_the_schedule(folder:
 def test_add_writes_the_leave_and_shows_the_year_end_balance(folder: Path) -> None:
     output = run(folder, "add", "2026-11-16", "2026-11-18", "--bucket", "vacation")
     assert "added leave 2026-11-16..2026-11-18 (planned) from vacation to" in output
-    assert "vacation at the end of 2026: 50.46 h" in output  # 74.46 - 3 x 8
+    assert "vacation at the end of 2026: 50.50 h" in output  # 74.50 - 3 x 8
     output = run(folder, "add", "2026-11-19", "-b", "rol", "--hours", "4", "--taken")
-    assert "rol at the end of 2026: 110.21 h" in output
+    assert "rol at the end of 2026: 110.17 h" in output
     text = year_text(folder)
     assert 'start = 2026-11-16\nend = 2026-11-18\nbucket = "vacation"\nstate = "planned"' in text
     assert 'date = 2026-11-19\nhours = 4\nbucket = "rol"\nstate = "taken"' in text
@@ -194,18 +194,18 @@ def test_take_marks_a_planned_leave_also_from_the_year_before(folder: Path) -> N
 
 
 def test_payslip_check_shows_the_difference(folder: Path) -> None:
-    output = run(folder, "payslip", "2026-10", "-b", "vacation=80", "-b", "rol=104.87")
+    output = run(folder, "payslip", "2026-10", "-b", "vacation=80", "-b", "rol=104.83")
     assert "recorded the 2026-10 payslip (check) in" in output
-    assert "vacation: payslip 80.00 h, computed 79.80 (+0.20)" in output
-    assert "rol: payslip 104.87 h, computed 104.87 (+0.00)" in output
-    assert 'month = "2026-10"\nmode = "check"\nbalances = {vacation = 80, rol = 104.87}' in (
+    assert "vacation: payslip 80.00 h, computed 79.84 (+0.16)" in output
+    assert "rol: payslip 104.83 h, computed 104.83 (+0.00)" in output
+    assert 'month = "2026-10"\nmode = "check"\nbalances = {vacation = 80, rol = 104.83}' in (
         year_text(folder)
     )
 
 
 def test_payslip_override_re_anchors(folder: Path) -> None:
     output = run(folder, "payslip", "2026-11", "-b", "vacation=70", "--override")
-    assert "vacation: payslip 70.00 h, computed 93.13 (-23.13)" in output
+    assert "vacation: payslip 70.00 h, computed 93.17 (-23.17)" in output
     rows = table(run(folder, "report", "2026-11..2026-12"), "Ferie")
     assert rows["2026-11"][rows["Month"].index("Close")] == "70.00"
     assert rows["2026-12"][rows["Month"].index("Close")] == "51.33"  # 70 + 13.33 - 32
@@ -230,11 +230,11 @@ def test_report_shows_two_decimals_days_and_only_used_columns(folder: Path) -> N
         "Month", "Open", "Accrued", "Taken", "Planned", "Closures", "Close", "Days", "Payslip"
     ]  # fmt: skip
     assert vacation["2026-08"] == [
-        "2026-08", "119.81", "13.33", "40.00", "0.00", "40.00", "53.14", "6.64"
+        "2026-08", "119.85", "13.33", "40.00", "0.00", "40.00", "53.18", "6.65"
     ]  # fmt: skip
-    assert vacation["2026-09"][-1] == "66.47"
+    assert vacation["2026-09"][-1] == "66.51"
     assert "Closures" not in rol["Month"]
-    assert rol["2026-12"][1:] == ["113.54", "8.67", "0.00", "8.00", "114.21", "14.28"]
+    assert rol["2026-12"][1:] == ["113.50", "8.67", "0.00", "8.00", "114.17", "14.27"]
     assert len(vacation) == 13  # header and 12 months
     assert "Notices" not in output
 
@@ -266,7 +266,7 @@ def test_report_lists_notices_and_lots(folder: Path) -> None:
     output = run(folder, "report", "2026-10..2026-12", "--lots")
     assert output.split("Notices\n")[1].splitlines() == [
         "2026-10-26  leave on 2026-10-26 is still planned; mark it taken or remove it",
-        "2026-10-31  vacation: payslip 2026-10 shows 80, computed 79.80 (+0.20)",
+        "2026-10-31  vacation: payslip 2026-10 shows 80, computed 79.84 (+0.16)",
     ]
     rows = table(output, "ROL + ex")
     assert rows["2026-12"][-2:] == ["2025:", "2.17"]
@@ -286,8 +286,8 @@ def test_report_explains_a_payslip_lag(folder: Path) -> None:
     assert note in output
     assert "Payslips count" not in run(folder, "report", "2026-08")  # no payslip shown
     rows = table(output, "Ferie")
-    assert rows["2026-09"][rows["Month"].index("Close")] == "66.47"
-    assert rows["2026-09"][-1] == "66.47"  # September has no leave, so the payslip still matches
+    assert rows["2026-09"][rows["Month"].index("Close")] == "66.51"
+    assert rows["2026-09"][-1] == "66.51"  # September has no leave, so the payslip still matches
 
 
 def test_absences_are_recorded_reported_and_exported(folder: Path) -> None:
@@ -305,7 +305,7 @@ def test_absences_are_recorded_reported_and_exported(folder: Path) -> None:
     assert (rows["2026-11"][1:], rows["2026-12"][1:]) == (["1.00"], ["0.50"])
     assert tables(run(folder, "report", "2026-10")) == 2
     assert list(table(run(folder, "report", "2026-12"), "Other absences")) == ["Month", "2026-12"]
-    assert table(output, "Ferie")["2026-12"][-2:] == ["74.46", "9.31"]  # balances unchanged
+    assert table(output, "Ferie")["2026-12"][-2:] == ["74.50", "9.31"]  # balances unchanged
     assert "SUMMARY:Blood donation" in run(folder, "export", "ics", "2026-11").splitlines()
     error = run(folder, "payslip", "2026-11", "-b", "donation=1", code=1)
     assert "error: payslip 2026-11: absence 'donation' has no balance" in error
@@ -314,8 +314,8 @@ def test_absences_are_recorded_reported_and_exported(folder: Path) -> None:
 def test_report_strict_fails_on_a_negative_balance(folder: Path) -> None:
     run(folder, "add", "2026-02-02", "2026-02-27", "-b", "vacation")
     error = run(folder, "report", "--strict", code=1)
-    assert "error: vacation: balance -106.84 at the end of 2026-02" in error
-    assert "-106.84" in run(folder, "report")
+    assert "error: vacation: balance -106.82 at the end of 2026-02" in error
+    assert "-106.82" in run(folder, "report")
 
 
 def test_report_without_year_files_starts_from_zero(tmp_path: Path) -> None:
@@ -330,8 +330,8 @@ def test_export_csv(folder: Path) -> None:
     output = run(folder, "export", "csv", "2026-12")
     assert output.splitlines() == [
         ",".join(CSV_FIELDS),
-        "vacation,hours,2026-12,93.13,13.33,0.00,32.00,0.00,0.00,74.46,9.31,,",
-        "rol,hours,2026-12,113.54,8.67,0.00,8.00,0.00,0.00,114.21,14.28,,",
+        "vacation,hours,2026-12,93.17,13.33,0.00,32.00,0.00,0.00,74.50,9.31,,",
+        "rol,hours,2026-12,113.50,8.67,0.00,8.00,0.00,0.00,114.17,14.27,,",
     ]
     assert len(run(folder, "export", "csv").splitlines()) == 1 + 2 * 12
 

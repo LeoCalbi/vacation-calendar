@@ -177,7 +177,7 @@ The [`examples`](examples) folder holds a complete data folder for each of eight
 
 | Example | Shows |
 | - | - |
-| [`it-bo`](examples/it-bo) (Bologna, Italy) | hours buckets with monthly accrual (CCNL Metalmeccanici), a summer closure |
+| [`it-bo`](examples/it-bo) (Bologna, Italy) | hours buckets with yearly totals credited monthly (CCNL Metalmeccanici), a summer closure |
 | [`de-by`](examples/de-by) (Bavaria, Germany) | a days bucket granted each January, a Christmas closure |
 | [`fr`](examples/fr) (France) | monthly accrual in days from a June reference period, RTT days |
 | [`us`](examples/us) (United States) | PTO accrued monthly, a floating holiday, a company holiday by rule, federal holidays removed |
